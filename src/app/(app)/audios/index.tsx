@@ -14,10 +14,10 @@ interface Word {
 
 /* eslint-disable no-undef */
 const AUDIO_FILES: Record<string, any> = {
-  aau: require('../../../assets/sounds/aau.mp3'),
-  mojko: require('../../../assets/sounds/mojko.mp3'),
-  nana: require('../../../assets/sounds/nana.mp3'),
-  nakon: require('../../../assets/sounds/nakon.mp3'),
+  aau: require('../../../../assets/sounds/aau.mp3'),
+  mojko: require('../../../../assets/sounds/mojko.mp3'),
+  nana: require('../../../../assets/sounds/nana.mp3'),
+  nakon: require('../../../../assets/sounds/nakon.mp3'),
 };
 /* eslint-enable no-undef */
 
