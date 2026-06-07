@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
@@ -14,7 +15,7 @@ interface Module {
   id: number;
   titulo_espanol: string;
   titulo_karina: string;
-  emoji: string;
+  imagen_url: string;
   color: string;
   descripcion: string;
 }
@@ -70,18 +71,18 @@ export default function ModuloDetailScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
       {/* Header */}
-      <View style={{ backgroundColor: module.color, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 }}>
+      <View style={{ backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 }}>
         <Pressable onPress={() => router.back()} style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
             <Text style={{ color: '#FFFFFF', fontSize: 16 }}>←</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Menú</Text>
           </View>
         </Pressable>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Text style={{ fontSize: 40 }}>{module.emoji}</Text>
-          <View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <Image source={{ uri: module.imagen_url }} style={{ width: 70, height: 70, borderRadius: 12 }} contentFit="cover" />
+          <View style={{ flex: 1 }}>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700' }}>{module.titulo_karina}</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '900' }}>{module.titulo_espanol}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900' }}>{module.titulo_espanol}</Text>
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{module.descripcion}</Text>
           </View>
         </View>

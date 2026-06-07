@@ -9,14 +9,7 @@ import { useSession } from '@/ctx';
 const HEADER_IMAGE =
   'https://miaoda-conversation-file.s3cdn.medo.dev/user-c6js8p49d4ao/app-c6jsx92bbkld/20260607/1000861193.jpg';
 
-interface Module {
-  id: number;
-  titulo_espanol: string;
-  titulo_karina: string;
-  emoji: string;
-  color: string;
-  descripcion: string;
-}
+const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 
 interface ProgressItem {
   module_id: number;
@@ -24,78 +17,66 @@ interface ProgressItem {
   xp: number;
 }
 
-const HISTORIAS = [
+const SABIAS_QUE = [
   {
-    titulo: 'Orígenes del Pueblo Kariña',
-    texto: 'Los Kariña, también conocidos como Caribes, han habitado las tierras del Estado Bolívar, Venezuela, por siglos. Su nombre significa "el pueblo" y han preservado su lengua y cultura a través de generaciones.',
-    emoji: '🌳',
-    color: '#2E7D32',
+    titulo: '¿Sabías que?',
+    texto: 'Los Kariña habitan el territorio del Estado Bolívar, Venezuela, desde tiempos ancestrales. Su nombre significa "el pueblo".',
+    imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_dc727547-b06b-4d44-a03f-a4cb4506fa18.jpg',
   },
   {
-    titulo: 'Los Tepuyes y la Naturaleza',
-    texto: 'El territorio Kariña está rodeado de tepuyes y selva amazónica. Para ellos, cada montaña y río tiene un espíritu protector. Su cosmovisión enseña a respetar la Madre Tierra como fuente de vida.',
-    emoji: '⛰️',
-    color: '#1565C0',
+    titulo: '¿Sabías que?',
+    texto: 'El territorio Kariña está rodeado de tepuyes y selva amazónica. Cada montaña y río tiene un espíritu protector.',
+    imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1d848420-04ef-4f88-aadb-8748e1135ff1.jpg',
   },
   {
-    titulo: 'La Lengua Kariña Hoy',
-    texto: 'El idioma Kariña es una lengua caribe que ha sobrevivido pese a los siglos de colonización. Hoy, comunidades enteras trabajan para enseñarlo a las nuevas generaciones y evitar su extinción.',
-    emoji: '🗣️',
-    color: '#BF360C',
+    titulo: '¿Sabías que?',
+    texto: 'La lengua Kariña es una lengua caribe que ha sobrevivido pese a la colonización. Hoy se enseña a nuevas generaciones.',
+    imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_7db21dcd-f48f-411b-9589-22deafac292e.jpg',
   },
   {
-    titulo: 'Tradiciones y Celebraciones',
-    texto: 'Los Kariña celebran la cosecha, la pesca y los ciclos de la luna con danzas, cantos y rituales. La chicha de yuca y el cazabe son elementos centrales de su gastronomía tradicional.',
-    emoji: '🎉',
-    color: '#E65100',
+    titulo: '¿Sabías que?',
+    texto: 'Los artesanos Kariña elaboran cestas y cerámica con técnicas transmitidas de abuela a nieta.',
+    imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8ad11788-1332-4f29-89ab-6d14f7d0e3ae.jpg',
   },
   {
-    titulo: 'Arte y Artesanía',
-    texto: 'Los artesanos Kariña elaboran cestas, hamacas y cerámica con técnicas transmitidas de abuela a nieta. Cada pieza lleva consigo historias y símbolos de su cosmogonía ancestral.',
-    emoji: '🧺',
-    color: '#6A1B9A',
+    titulo: '¿Sabías que?',
+    texto: 'Las hachas ceremoniales Kariña son símbolos de poder y conexión con los ancestros.',
+    imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_79a3c4fe-c330-48af-a1f0-7652e49af193.jpg',
   },
 ];
 
-function HistoriaRotativa() {
+function SabiasQueRotativo() {
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     const interval = setInterval(() => {
-      setIdx((prev) => (prev + 1) % HISTORIAS.length);
-    }, 8000);
+      setIdx((prev) => (prev + 1) % SABIAS_QUE.length);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
-  const h = HISTORIAS[idx];
+  const s = SABIAS_QUE[idx];
 
   return (
     <View style={{ marginHorizontal: 20, marginTop: 20 }}>
-      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginBottom: 10 }}>
-        📖 Historia de la comunidad
+      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginBottom: 10 }}>
+        💡 ¿Sabías que?
       </Text>
-      <View
-        style={{
-          backgroundColor: h.color,
-          borderRadius: 18,
-          padding: 18,
-          overflow: 'hidden',
-        }}
-      >
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-          <Text style={{ fontSize: 28 }}>{h.emoji}</Text>
-          <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF', flex: 1 }}>{h.titulo}</Text>
+      <View style={{ borderRadius: 18, overflow: 'hidden', backgroundColor: '#1B5E20' }}>
+        <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+        <View style={{ padding: 16 }}>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
+          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
         </View>
-        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{h.texto}</Text>
         {/* Indicadores */}
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 14, justifyContent: 'center' }}>
-          {HISTORIAS.map((_, i) => (
+        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 14, justifyContent: 'center' }}>
+          {SABIAS_QUE.map((_, i) => (
             <View
               key={i}
               style={{
                 width: 8,
                 height: 8,
                 borderRadius: 4,
-                backgroundColor: i === idx ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+                backgroundColor: i === idx ? '#F59E0B' : 'rgba(255,255,255,0.3)',
               }}
             />
           ))}
@@ -105,14 +86,35 @@ function HistoriaRotativa() {
   );
 }
 
+function MascotaTortuga() {
+  const router = useRouter();
+  return (
+    <View style={{ marginHorizontal: 20, marginTop: 24, alignItems: 'center' }}>
+      <Pressable onPress={() => router.push('/(app)/pronunciacion')}>
+        <View style={{ alignItems: 'center' }}>
+          <Image
+            source={{ uri: TORTUGA_IMAGE }}
+            style={{ width: 120, height: 120, borderRadius: 60 }}
+            contentFit="cover"
+          />
+          <View style={{ backgroundColor: '#F59E0B', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 6, marginTop: 8 }}>
+            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '800' }}>🐢 ¡Hola! Soy tu guía Kariña</Text>
+          </View>
+        </View>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
-  const [modules, setModules] = useState<Module[]>([]);
+  const [modulesCount, setModulesCount] = useState(0);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
   const [totalXp, setTotalXp] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [idioma, setIdioma] = useState('es');
 
   useFocusEffect(
     useCallback(() => {
@@ -123,23 +125,18 @@ export default function HomeScreen() {
   async function loadData() {
     setLoading(true);
 
-    const { data: modData } = await supabase
-      .from('modules')
-      .select('*')
-      .order('orden', { ascending: true });
-
-    if (modData) {
-      setModules(modData as Module[]);
-    }
+    const { count } = await supabase.from('modules').select('*', { count: 'exact', head: true });
+    if (count !== null) setModulesCount(count);
 
     if (session?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nombre, username')
+        .select('nombre, username, idioma')
         .eq('id', session.user.id)
         .single();
       if (profile) {
         setUserName(profile.nombre || profile.username || 'Usuario');
+        if (profile.idioma) setIdioma(profile.idioma);
       }
 
       const { data: progData } = await supabase
@@ -156,8 +153,15 @@ export default function HomeScreen() {
     setLoading(false);
   }
 
+  async function toggleIdioma() {
+    if (!session?.user?.id) return;
+    const nuevo = idioma === 'es' ? 'en' : 'es';
+    await supabase.from('profiles').update({ idioma: nuevo }).eq('id', session.user.id);
+    setIdioma(nuevo);
+  }
+
   const completedCount = progress.filter((p) => p.completed).length;
-  const progressPercent = modules.length > 0 ? (completedCount / modules.length) * 100 : 0;
+  const progressPercent = modulesCount > 0 ? (completedCount / modulesCount) * 100 : 0;
 
   if (loading) {
     return (
@@ -176,17 +180,22 @@ export default function HomeScreen() {
           <View
             style={{
               position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 80,
-              backgroundColor: 'transparent',
+              top: 16,
+              right: 20,
             }}
-          />
+          >
+            <Pressable onPress={toggleIdioma}>
+              <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>
+                  {idioma === 'es' ? '🇪🇸 ES → 🇬🇧 EN' : '🇬🇧 EN → 🇪🇸 ES'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
           <View style={{ position: 'absolute', bottom: 16, left: 20 }}>
-            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>KARIÑA · IDIOMA INDÍGENA</Text>
+            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>KARIÑA · INDIGENOUS LANGUAGE</Text>
             <Text style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 }}>
-              Menú Interactivo
+              {idioma === 'es' ? 'Menú Interactivo' : 'Interactive Menu'}
             </Text>
           </View>
         </View>
@@ -194,153 +203,85 @@ export default function HomeScreen() {
         {/* Bienvenida */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
           <Text style={{ fontSize: 16, color: '#1A2E1A', fontWeight: '700' }}>
-            ¡Bienvenido, {userName}! 👋
+            {idioma === 'es' ? `¡Bienvenido, ${userName}! 👋` : `Welcome, ${userName}! 👋`}
           </Text>
           <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-            Elige un módulo para comenzar tu aprendizaje del idioma Kariña
+            {idioma === 'es' ? 'Aprende el idioma Kariña de forma divertida' : 'Learn the Kariña language in a fun way'}
           </Text>
         </View>
 
         {/* Progreso + XP */}
         <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#F0EDE8' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A2E1A' }}>Tu progreso</Text>
-            <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>{completedCount} de {modules.length} módulos</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A2E1A' }}>{idioma === 'es' ? 'Tu progreso' : 'Your progress'}</Text>
+            <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>{completedCount} {idioma === 'es' ? 'de' : 'of'} {modulesCount} {idioma === 'es' ? 'módulos' : 'modules'}</Text>
           </View>
           <View style={{ height: 8, backgroundColor: '#E8F5E9', borderRadius: 4, marginTop: 8, overflow: 'hidden' }}>
             <View style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#2E7D32', borderRadius: 4 }} />
           </View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ fontSize: 11, color: '#888' }}>{Math.round(progressPercent)}% completado</Text>
+            <Text style={{ fontSize: 11, color: '#888' }}>{Math.round(progressPercent)}% {idioma === 'es' ? 'completado' : 'completed'}</Text>
             <Text style={{ fontSize: 11, color: '#1565C0', fontWeight: '700' }}>⭐ {totalXp} XP</Text>
           </View>
         </View>
 
-        {/* Pronunciación destacada */}
-        <Pressable onPress={() => router.push('/(app)/pronunciacion')} style={{ marginHorizontal: 20, marginTop: 16 }}>
-          <View
-            style={{
-              backgroundColor: '#1565C0',
-              borderRadius: 16,
-              padding: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 12,
-            }}
-          >
-            <View
-              style={{
-                width: 50,
-                height: 50,
-                borderRadius: 25,
-                backgroundColor: 'rgba(255,255,255,0.2)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontSize: 24 }}>🗣️</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>Pronunciación con Audio</Text>
-              <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', marginTop: 2 }}>
-                Escucha 4 palabras auténticas en idioma Kariña
-              </Text>
-            </View>
-            <Text style={{ fontSize: 20, color: '#FFFFFF' }}>→</Text>
-          </View>
-        </Pressable>
+        {/* ¿Sabías que? con imágenes indígenas */}
+        <SabiasQueRotativo />
 
-        {/* Módulos destacados (carrusel horizontal) */}
-        <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginHorizontal: 20, marginTop: 20, marginBottom: 10 }}>
-          Módulos destacados
+        {/* Mascota tortuga guía */}
+        <MascotaTortuga />
+
+        {/* Accesos rápidos */}
+        <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginHorizontal: 20, marginTop: 24, marginBottom: 10 }}>
+          📚 {idioma === 'es' ? 'Áreas de repaso' : 'Review areas'}
         </Text>
-        <FlatList
-          data={modules.slice(0, 4)}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ paddingHorizontal: 20 }}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => router.push(`/(app)/modulo/${item.id}`)} style={{ marginRight: 12 }}>
-              <View
-                style={{
-                  width: 160,
-                  backgroundColor: item.color,
-                  borderRadius: 16,
-                  padding: 16,
-                  height: 140,
-                  justifyContent: 'space-between',
-                }}
-              >
-                <Text style={{ fontSize: 28 }}>{item.emoji}</Text>
-                <View>
-                  <Text style={{ fontSize: 13, fontWeight: '800', color: '#FFFFFF' }}>{item.titulo_espanol}</Text>
-                  <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>{item.titulo_karina}</Text>
-                </View>
+
+        <View style={{ paddingHorizontal: 20, gap: 10, paddingBottom: 12 }}>
+          {/* Audio repaso */}
+          <Pressable onPress={() => router.push('/(app)/audios')}>
+            <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#F0EDE8' }}>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 24 }}>🔊</Text>
               </View>
-            </Pressable>
-          )}
-        />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{idioma === 'es' ? 'Audios de repaso' : 'Audio review'}</Text>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{idioma === 'es' ? 'Escucha todas las palabras en Kariña' : 'Listen to all Kariña words'}</Text>
+              </View>
+              <Text style={{ fontSize: 20, color: '#F59E0B' }}>→</Text>
+            </View>
+          </Pressable>
 
-        {/* Historia de la comunidad indígena */}
-        <HistoriaRotativa />
+          {/* Diccionario */}
+          <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
+            <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#F0EDE8' }}>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 24 }}>📖</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{idioma === 'es' ? 'Diccionario de repaso' : 'Review dictionary'}</Text>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{idioma === 'es' ? 'Busca cualquier palabra Kariña o español' : 'Search any Kariña or Spanish word'}</Text>
+              </View>
+              <Text style={{ fontSize: 20, color: '#2E7D32' }}>→</Text>
+            </View>
+          </Pressable>
 
-        {/* Todos los módulos (grid) */}
-        <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginHorizontal: 20, marginTop: 24, marginBottom: 10 }}>
-          Todos los módulos
-        </Text>
-        <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
-          {modules.map((item) => {
-            const modProgress = progress.find((p) => p.module_id === item.id);
-            const isCompleted = modProgress?.completed || false;
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push(`/(app)/modulo/${item.id}`)}
-                style={{ marginBottom: 10 }}
-              >
-                <View
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: 14,
-                    padding: 14,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    borderWidth: 1,
-                    borderColor: isCompleted ? '#2E7D32' : '#F0EDE8',
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 12,
-                      backgroundColor: isCompleted ? '#E8F5E9' : `${item.color}18`,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text style={{ fontSize: 22 }}>{isCompleted ? '🏅' : item.emoji}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A' }}>{item.titulo_espanol}</Text>
-                      {isCompleted && (
-                        <View style={{ backgroundColor: '#2E7D32', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
-                          <Text style={{ fontSize: 9, color: '#FFF', fontWeight: '700' }}>✓ LISTO</Text>
-                        </View>
-                      )}
-                    </View>
-                    <Text style={{ fontSize: 10, color: item.color, fontWeight: '700', marginTop: 1 }}>{item.titulo_karina}</Text>
-                    <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item.descripcion}</Text>
-                  </View>
-                  <Text style={{ fontSize: 18, color: item.color }}>→</Text>
-                </View>
-              </Pressable>
-            );
-          })}
+          {/* Juegos */}
+          <Pressable onPress={() => router.push('/(app)/(tabs)/juegos')}>
+            <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#F0EDE8' }}>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E3F2FD', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 24 }}>🎮</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{idioma === 'es' ? 'Juegos de repaso' : 'Review games'}</Text>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{idioma === 'es' ? 'Practica con 3 juegos divertidos' : 'Practice with 3 fun games'}</Text>
+              </View>
+              <Text style={{ fontSize: 20, color: '#1565C0' }}>→</Text>
+            </View>
+          </Pressable>
         </View>
+
+        {/* Espacio inferior */}
+        <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>
   );

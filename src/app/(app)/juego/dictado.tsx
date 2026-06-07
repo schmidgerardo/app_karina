@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useAudioPlayer } from 'expo-audio';
 import { supabase } from '@/client/supabase';
 
 interface Word {
@@ -10,9 +11,20 @@ interface Word {
   traduccion_espanol: string;
 }
 
+/* eslint-disable no-undef */
+const AUDIO_MAP: Record<string, any> = {
+  aau: require('../../../assets/sounds/aau.mp3'),
+  mojko: require('../../../assets/sounds/mojko.mp3'),
+  nana: require('../../../assets/sounds/nana.mp3'),
+  nakon: require('../../../assets/sounds/nakon.mp3'),
+};
+/* eslint-enable no-undef */
+
+const AUDIO_WORDS = ['aau', 'mojko', 'nana', 'nakon'];
+
 export default function JuegoDictadoScreen() {
   const router = useRouter();
-  const [allWords, setAllWords] = useState<Word[]>([]);
+  const [audioWords, setAudioWords] = useState<Word[]>([]);
   const [target, setTarget] = useState<Word | null>(null);
   const [loading, setLoading] = useState(true);
   const [answer, setAnswer] = useState('');
@@ -20,6 +32,7 @@ export default function JuegoDictadoScreen() {
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const player = useAudioPlayer(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,38 +45,53 @@ export default function JuegoDictadoScreen() {
     const { data } = await supabase
       .from('words')
       .select('id, palabra_karina, traduccion_espanol')
-      .limit(50);
+      .in('palabra_karina', AUDIO_WORDS);
     if (data) {
       const words = shuffleArray(data as Word[]);
-      setAllWords(words);
-      startRound(words);
+      setAudioWords(words);
+      startRound(words, 1);
     }
     setLoading(false);
   }
 
-  function startRound(words: Word[]) {
-    const t = words[Math.floor(Math.random() * words.length)];
+  function startRound(words: Word[], currentRound: number) {
+    const idx = (currentRound - 1) % words.length;
+    const t = words[idx];
     setTarget(t);
     setAnswer('');
     setChecked(false);
+    // Auto-play audio on round start
+    setTimeout(() => playAudioForWord(t), 500);
+  }
+
+  async function playAudioForWord(word: Word) {
+    const key = word.palabra_karina.toLowerCase();
+    const asset = AUDIO_MAP[key];
+    if (!asset) return;
+    try {
+      await player.replace(asset);
+      await player.play();
+    } catch {
+      // ignore
+    }
   }
 
   function nextRound() {
-    if (round >= 5) {
+    if (round >= 4) {
       setGameOver(true);
       return;
     }
-    setRound((r) => r + 1);
-    startRound(allWords);
+    const nextR = round + 1;
+    setRound(nextR);
+    startRound(audioWords, nextR);
   }
 
   function checkAnswer() {
     if (!answer.trim()) return;
-    const isCorrect = answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase();
     setChecked(true);
+    const isCorrect = answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase();
     if (isCorrect) {
       setScore((s) => s + 25);
-      setTimeout(nextRound, 1200);
     }
   }
 
@@ -108,21 +136,23 @@ export default function JuegoDictadoScreen() {
         </Pressable>
         <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>✍️ Dictado Kariña</Text>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Palabra {round} de 5</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Palabra {round} de 4</Text>
           <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700' }}>⭐ {score} pts</Text>
         </View>
       </View>
 
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Escucha la pista y escribe la palabra en Kariña</Text>
+          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Escucha el audio y escribe la palabra en Kariña</Text>
 
           <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center', marginBottom: 20 }}>
             <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Significado: {target?.traduccion_espanol}</Text>
-            <View style={{ backgroundColor: '#FFF3E0', borderRadius: 50, padding: 16, marginBottom: 8 }}>
-              <Text style={{ fontSize: 32 }}>🎧</Text>
-            </View>
-            <Text style={{ fontSize: 12, color: '#888', fontStyle: 'italic' }}>(Audio disponible próximamente)</Text>
+            <Pressable onPress={() => target && playAudioForWord(target)}>
+              <View style={{ backgroundColor: '#F59E0B', borderRadius: 50, width: 70, height: 70, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 32 }}>▶️</Text>
+              </View>
+            </Pressable>
+            <Text style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Toca para reproducir</Text>
           </View>
 
           <TextInput
@@ -204,7 +234,7 @@ export default function JuegoDictadoScreen() {
               <Pressable onPress={nextRound}>
                 <View style={{ backgroundColor: '#1B5E20', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}>
                   <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>
-                    {round >= 5 ? 'Ver resultado' : 'Siguiente palabra'}
+                    {round >= 4 ? 'Ver resultado' : 'Siguiente palabra'}
                   </Text>
                 </View>
               </Pressable>

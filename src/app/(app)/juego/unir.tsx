@@ -55,7 +55,7 @@ export default function JuegoUnirScreen() {
       setGameOver(true);
       return;
     }
-    setRound(round + 1);
+    setRound((r) => r + 1);
     startRound(allWords);
   }
 
@@ -72,13 +72,17 @@ export default function JuegoUnirScreen() {
     if (!selectedKarina) return;
     const pair = pairs.find((p) => p.palabra_karina === selectedKarina);
     if (pair && pair.traduccion_espanol === espanol) {
-      setMatched(new Set([...matched, selectedKarina]));
+      setMatched((prev) => {
+        const next = new Set(prev);
+        next.add(selectedKarina);
+        if (next.size === 4) {
+          setTimeout(() => nextRound(), 600);
+        }
+        return next;
+      });
       setSelectedKarina(null);
       setWrongPair(null);
       setScore((s) => s + 10);
-      if (matched.size + 1 === 4) {
-        setTimeout(nextRound, 600);
-      }
     } else {
       setWrongPair(selectedKarina);
       setSelectedKarina(null);

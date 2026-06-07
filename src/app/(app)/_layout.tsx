@@ -10,6 +10,7 @@ export default function AppLayout() {
       <Stack.Screen name="juego/unir" />
       <Stack.Screen name="juego/opciones" />
       <Stack.Screen name="juego/dictado" />
+      <Stack.Screen name="audios/index" />
     </Stack>
   );
 }
