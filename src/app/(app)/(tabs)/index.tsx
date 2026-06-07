@@ -18,10 +18,18 @@ interface Module {
   descripcion: string;
 }
 
+interface ProgressItem {
+  module_id: number;
+  completed: boolean;
+  xp: number;
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
   const [modules, setModules] = useState<Module[]>([]);
+  const [progress, setProgress] = useState<ProgressItem[]>([]);
+  const [totalXp, setTotalXp] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
 
@@ -34,7 +42,6 @@ export default function HomeScreen() {
   async function loadData() {
     setLoading(true);
 
-    // Cargar módulos
     const { data: modData } = await supabase
       .from('modules')
       .select('*')
@@ -44,7 +51,6 @@ export default function HomeScreen() {
       setModules(modData as Module[]);
     }
 
-    // Cargar nombre del usuario
     if (session?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -54,10 +60,23 @@ export default function HomeScreen() {
       if (profile) {
         setUserName(profile.nombre || profile.username || 'Usuario');
       }
+
+      const { data: progData } = await supabase
+        .from('module_progress')
+        .select('module_id, completed, xp')
+        .eq('user_id', session.user.id);
+
+      if (progData) {
+        setProgress(progData as ProgressItem[]);
+        setTotalXp(progData.reduce((sum, p) => sum + (p.xp || 0), 0));
+      }
     }
 
     setLoading(false);
   }
+
+  const completedCount = progress.filter((p) => p.completed).length;
+  const progressPercent = modules.length > 0 ? (completedCount / modules.length) * 100 : 0;
 
   if (loading) {
     return (
@@ -101,14 +120,18 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Progreso */}
+        {/* Progreso + XP */}
         <View style={{ marginHorizontal: 20, marginTop: 14, backgroundColor: '#FFFFFF', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: '#F0EDE8' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A2E1A' }}>Tu progreso</Text>
-            <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>0 de 10 módulos</Text>
+            <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>{completedCount} de {modules.length} módulos</Text>
           </View>
           <View style={{ height: 8, backgroundColor: '#E8F5E9', borderRadius: 4, marginTop: 8, overflow: 'hidden' }}>
-            <View style={{ width: '0%', height: '100%', backgroundColor: '#2E7D32', borderRadius: 4 }} />
+            <View style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#2E7D32', borderRadius: 4 }} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+            <Text style={{ fontSize: 11, color: '#888' }}>{Math.round(progressPercent)}% completado</Text>
+            <Text style={{ fontSize: 11, color: '#1565C0', fontWeight: '700' }}>⭐ {totalXp} XP</Text>
           </View>
         </View>
 
@@ -183,45 +206,56 @@ export default function HomeScreen() {
           Todos los módulos
         </Text>
         <View style={{ paddingHorizontal: 20, paddingBottom: 30 }}>
-          {modules.map((item) => (
-            <Pressable
-              key={item.id}
-              onPress={() => router.push(`/(app)/modulo/${item.id}`)}
-              style={{ marginBottom: 10 }}
-            >
-              <View
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: 14,
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  borderWidth: 1,
-                  borderColor: '#F0EDE8',
-                }}
+          {modules.map((item) => {
+            const modProgress = progress.find((p) => p.module_id === item.id);
+            const isCompleted = modProgress?.completed || false;
+            return (
+              <Pressable
+                key={item.id}
+                onPress={() => router.push(`/(app)/modulo/${item.id}`)}
+                style={{ marginBottom: 10 }}
               >
                 <View
                   style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 12,
-                    backgroundColor: `${item.color}18`,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 14,
+                    padding: 14,
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    gap: 12,
+                    borderWidth: 1,
+                    borderColor: isCompleted ? '#2E7D32' : '#F0EDE8',
                   }}
                 >
-                  <Text style={{ fontSize: 22 }}>{item.emoji}</Text>
+                  <View
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 12,
+                      backgroundColor: isCompleted ? '#E8F5E9' : `${item.color}18`,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Text style={{ fontSize: 22 }}>{isCompleted ? '🏅' : item.emoji}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A' }}>{item.titulo_espanol}</Text>
+                      {isCompleted && (
+                        <View style={{ backgroundColor: '#2E7D32', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 9, color: '#FFF', fontWeight: '700' }}>✓ LISTO</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={{ fontSize: 10, color: item.color, fontWeight: '700', marginTop: 1 }}>{item.titulo_karina}</Text>
+                    <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item.descripcion}</Text>
+                  </View>
+                  <Text style={{ fontSize: 18, color: item.color }}>→</Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A' }}>{item.titulo_espanol}</Text>
-                  <Text style={{ fontSize: 10, color: item.color, fontWeight: '700', marginTop: 1 }}>{item.titulo_karina}</Text>
-                  <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{item.descripcion}</Text>
-                </View>
-                <Text style={{ fontSize: 18, color: item.color }}>→</Text>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -85,6 +85,17 @@ export default function ModuloDetailScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{module.descripcion}</Text>
           </View>
         </View>
+        {/* Botón practicar */}
+        <Pressable onPress={() => router.push(`/(app)/practica/${module.id}`)} style={{ marginTop: 14 }}>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}>
+            <Text style={{ fontSize: 20 }}>🎯</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Practicar este módulo</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>3 ejercicios · Empareja, dictado y opciones</Text>
+            </View>
+            <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
+          </View>
+        </Pressable>
       </View>
 
       {/* Lista de palabras */}

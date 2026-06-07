@@ -26,6 +26,8 @@ export default function PerfilScreen() {
     }, [])
   );
 
+  const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
+
   async function loadProfile() {
     setLoading(true);
     if (session?.user?.id) {
@@ -35,6 +37,17 @@ export default function PerfilScreen() {
         .eq('id', session.user.id)
         .single();
       if (data) setProfile(data as Profile);
+
+      const { data: progData } = await supabase
+        .from('module_progress')
+        .select('xp, completed')
+        .eq('user_id', session.user.id);
+
+      if (progData) {
+        const totalXp = progData.reduce((sum, p) => sum + (p.xp || 0), 0);
+        const completed = progData.filter((p) => p.completed).length;
+        setStats({ totalXp, completed, totalGames: progData.length * 3 });
+      }
     }
     setLoading(false);
   }
@@ -102,9 +115,9 @@ export default function PerfilScreen() {
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginTop: 8, marginBottom: 4 }}>Estadísticas de aprendizaje</Text>
 
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <StatCard value="0" label="Módulos completados" color="#2E7D32" />
-            <StatCard value="0" label="Palabras aprendidas" color="#1565C0" />
-            <StatCard value="0" label="Juegos jugados" color="#E65100" />
+            <StatCard value={String(stats.completed)} label="Módulos completados" color="#2E7D32" />
+            <StatCard value={String(stats.totalXp)} label="XP total" color="#1565C0" />
+            <StatCard value={String(stats.totalGames)} label="Ejercicios hechos" color="#E65100" />
           </View>
 
           {/* Cerrar sesión */}
