@@ -48,7 +48,7 @@ export default function JuegosScreen() {
         </Text>
 
         {JUEGOS.map((juego) => (
-          <Pressable key={juego.id} onPress={() => { /* TODO: navegar a pantalla del juego */ }}>
+          <Pressable key={juego.id} onPress={() => router.push(`/(app)/juego/${juego.id}` as any)}>
             <View
               style={{
                 backgroundColor: '#FFFFFF',

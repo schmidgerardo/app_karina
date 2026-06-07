@@ -7,6 +7,9 @@ export default function AppLayout() {
       <Stack.Screen name="pronunciacion" />
       <Stack.Screen name="modulo/[id]" />
       <Stack.Screen name="practica/[id]" />
+      <Stack.Screen name="juego/unir" />
+      <Stack.Screen name="juego/opciones" />
+      <Stack.Screen name="juego/dictado" />
     </Stack>
   );
 }

@@ -24,6 +24,87 @@ interface ProgressItem {
   xp: number;
 }
 
+const HISTORIAS = [
+  {
+    titulo: 'Orígenes del Pueblo Kariña',
+    texto: 'Los Kariña, también conocidos como Caribes, han habitado las tierras del Estado Bolívar, Venezuela, por siglos. Su nombre significa "el pueblo" y han preservado su lengua y cultura a través de generaciones.',
+    emoji: '🌳',
+    color: '#2E7D32',
+  },
+  {
+    titulo: 'Los Tepuyes y la Naturaleza',
+    texto: 'El territorio Kariña está rodeado de tepuyes y selva amazónica. Para ellos, cada montaña y río tiene un espíritu protector. Su cosmovisión enseña a respetar la Madre Tierra como fuente de vida.',
+    emoji: '⛰️',
+    color: '#1565C0',
+  },
+  {
+    titulo: 'La Lengua Kariña Hoy',
+    texto: 'El idioma Kariña es una lengua caribe que ha sobrevivido pese a los siglos de colonización. Hoy, comunidades enteras trabajan para enseñarlo a las nuevas generaciones y evitar su extinción.',
+    emoji: '🗣️',
+    color: '#BF360C',
+  },
+  {
+    titulo: 'Tradiciones y Celebraciones',
+    texto: 'Los Kariña celebran la cosecha, la pesca y los ciclos de la luna con danzas, cantos y rituales. La chicha de yuca y el cazabe son elementos centrales de su gastronomía tradicional.',
+    emoji: '🎉',
+    color: '#E65100',
+  },
+  {
+    titulo: 'Arte y Artesanía',
+    texto: 'Los artesanos Kariña elaboran cestas, hamacas y cerámica con técnicas transmitidas de abuela a nieta. Cada pieza lleva consigo historias y símbolos de su cosmogonía ancestral.',
+    emoji: '🧺',
+    color: '#6A1B9A',
+  },
+];
+
+function HistoriaRotativa() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIdx((prev) => (prev + 1) % HISTORIAS.length);
+    }, 8000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const h = HISTORIAS[idx];
+
+  return (
+    <View style={{ marginHorizontal: 20, marginTop: 20 }}>
+      <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginBottom: 10 }}>
+        📖 Historia de la comunidad
+      </Text>
+      <View
+        style={{
+          backgroundColor: h.color,
+          borderRadius: 18,
+          padding: 18,
+          overflow: 'hidden',
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <Text style={{ fontSize: 28 }}>{h.emoji}</Text>
+          <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF', flex: 1 }}>{h.titulo}</Text>
+        </View>
+        <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{h.texto}</Text>
+        {/* Indicadores */}
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 14, justifyContent: 'center' }}>
+          {HISTORIAS.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: i === idx ? '#FFFFFF' : 'rgba(255,255,255,0.4)',
+              }}
+            />
+          ))}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
@@ -200,6 +281,9 @@ export default function HomeScreen() {
             </Pressable>
           )}
         />
+
+        {/* Historia de la comunidad indígena */}
+        <HistoriaRotativa />
 
         {/* Todos los módulos (grid) */}
         <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginHorizontal: 20, marginTop: 24, marginBottom: 10 }}>

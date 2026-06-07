@@ -2,7 +2,7 @@
   "expo": {
     "name": "Kariña - Idioma Indígena",
     "slug": "karina-idioma-indigena",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -31,7 +31,11 @@
       "expo-font",
       "expo-system-ui",
       "expo-image",
-      "expo-audio"
+      "expo-audio",
+      ["expo-image-picker", {
+        "cameraPermission": "Permitir a $(PRODUCT_NAME) acceder a la cámara para tomar una foto de perfil",
+        "photosPermission": "Permitir a $(PRODUCT_NAME) acceder a la galería para seleccionar una foto de perfil"
+      }]
     ],
     "router": {
       "root": "src"

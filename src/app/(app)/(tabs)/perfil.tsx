@@ -2,6 +2,8 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Image } from 'expo-image';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 
@@ -12,12 +14,15 @@ interface Profile {
   edad: number;
   es_indigena: boolean;
   role: string;
+  avatar_url: string | null;
 }
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { session } = useSession();
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -33,10 +38,13 @@ export default function PerfilScreen() {
     if (session?.user?.id) {
       const { data } = await supabase
         .from('profiles')
-        .select('username, nombre, apellido, edad, es_indigena, role')
+        .select('username, nombre, apellido, edad, es_indigena, role, avatar_url')
         .eq('id', session.user.id)
         .single();
-      if (data) setProfile(data as Profile);
+      if (data) {
+        setProfile(data as Profile);
+        setAvatarUrl((data as Profile).avatar_url || null);
+      }
 
       const { data: progData } = await supabase
         .from('module_progress')
@@ -50,6 +58,48 @@ export default function PerfilScreen() {
       }
     }
     setLoading(false);
+  }
+
+  async function pickImage() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      await uploadAvatar(result.assets[0].uri);
+    }
+  }
+
+  async function uploadAvatar(uri: string) {
+    if (!session?.user?.id) return;
+    try {
+      setUploading(true);
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const fileName = `${session.user.id}_${Date.now()}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg' });
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+      const publicUrl = data.publicUrl;
+
+      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', session.user.id);
+      setAvatarUrl(publicUrl);
+    } catch (e) {
+      console.error('Upload error:', e);
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function handleLogout() {
@@ -74,20 +124,51 @@ export default function PerfilScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={{ backgroundColor: '#1B5E20', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, alignItems: 'center' }}>
-          <View
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 40,
-              backgroundColor: '#F59E0B',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 3,
-              borderColor: 'rgba(255,255,255,0.3)',
-            }}
-          >
-            <Text style={{ fontSize: 36 }}>👤</Text>
-          </View>
+          <Pressable onPress={pickImage} disabled={uploading}>
+            <View style={{ position: 'relative' }}>
+              <View
+                style={{
+                  width: 90,
+                  height: 90,
+                  borderRadius: 45,
+                  backgroundColor: avatarUrl ? 'transparent' : '#F59E0B',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 3,
+                  borderColor: 'rgba(255,255,255,0.5)',
+                  overflow: 'hidden',
+                }}
+              >
+                {avatarUrl ? (
+                  <Image source={{ uri: avatarUrl }} style={{ width: 90, height: 90 }} contentFit="cover" />
+                ) : (
+                  <Text style={{ fontSize: 36 }}>👤</Text>
+                )}
+              </View>
+              {uploading && (
+                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 45, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+                  <ActivityIndicator size="small" color="#FFF" />
+                </View>
+              )}
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  backgroundColor: '#F59E0B',
+                  borderRadius: 16,
+                  width: 28,
+                  height: 28,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 2,
+                  borderColor: '#1B5E20',
+                }}
+              >
+                <Text style={{ fontSize: 12 }}>📷</Text>
+              </View>
+            </View>
+          </Pressable>
           <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900', marginTop: 12 }}>
             {displayName}
           </Text>
@@ -99,6 +180,13 @@ export default function PerfilScreen() {
               <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>🪶 Comunidad Indígena</Text>
             </View>
           )}
+          <Pressable onPress={pickImage} disabled={uploading}>
+            <View style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
+                {uploading ? 'Subiendo...' : '📷 Cambiar foto de perfil'}
+              </Text>
+            </View>
+          </Pressable>
         </View>
 
         {/* Información */}
