@@ -4,6 +4,7 @@ import { Stack, usePathname, useRouter } from 'expo-router';
 import { PortalHost } from '@rn-primitives/portal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import { useColorScheme } from 'nativewind';
 
 import { SessionProvider, useSession } from '@/ctx';
 import '../global.css';
@@ -30,7 +31,7 @@ function AuthGuard() {
 
   if (isLoading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#1B5E20', alignItems: 'center', justifyContent: 'center' }}>
+      <View className="flex-1 bg-primary items-center justify-center">
         <ActivityIndicator size="large" color="#F59E0B" />
       </View>
     );
@@ -45,9 +46,14 @@ function AuthGuard() {
 }
 
 export default function RootLayout() {
+  const { colorScheme } = useColorScheme();
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="light" backgroundColor="#1B5E20" />
+    <GestureHandlerRootView style={{ flex: 1 }} className={colorScheme}>
+      <StatusBar
+        style={colorScheme === 'dark' ? 'light' : 'dark'}
+        backgroundColor={colorScheme === 'dark' ? '#081408' : '#F9F6F0'}
+      />
       <SessionProvider>
         <AuthGuard />
       </SessionProvider>

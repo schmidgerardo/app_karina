@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 
 const JUEGOS = [
   {
-    id: 'unir_palabras',
+    id: 'unir',
     titulo: 'Une las palabras',
     descripcion: 'Empareja palabras Kariña con su traducción en español',
     emoji: '🔗',
@@ -13,7 +13,7 @@ const JUEGOS = [
     dificultad: 'Fácil',
   },
   {
-    id: 'audio_opciones',
+    id: 'opciones',
     titulo: 'Escucha y elige',
     descripcion: 'Escucha el audio en Kariña y selecciona la respuesta correcta entre A, B y C',
     emoji: '🎧',
@@ -28,6 +28,7 @@ const JUEGOS = [
     color: '#E65100',
     dificultad: 'Difícil',
   },
+  // Cambio revertido: el juego de pronunciación temporal se eliminó para evitar el crash.
 ];
 
 export default function JuegosScreen() {

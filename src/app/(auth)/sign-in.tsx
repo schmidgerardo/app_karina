@@ -22,28 +22,41 @@ export default function SignInScreen() {
   const [agreed, setAgreed] = useState(false);
 
   const handleLogin = async () => {
-    if (!username.trim() || !password.trim()) {
-      setError('Por favor ingresa usuario y contraseña');
+    const trimmedUser = username.trim();
+    const trimmedPass = password.trim();
+
+    if (!trimmedUser || !trimmedPass) {
+      setError('Por favor, ingresa tu nombre de usuario y contraseña.');
       return;
     }
     if (!agreed) {
-      setError('Debes aceptar los términos para continuar');
+      setError('Debes aceptar los términos y condiciones para continuar.');
       return;
     }
+
     setError('');
     setLoading(true);
 
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: `${username.trim()}@miaoda.com`,
-      password,
-    });
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: `${trimmedUser}@miaoda.com`,
+        password: trimmedPass,
+      });
 
-    setLoading(false);
-
-    if (authError) {
-      setError('Usuario o contraseña incorrectos');
-    } else {
-      router.replace('/(app)/(tabs)');
+      if (authError) {
+        // Auditoría de errores comunes de autenticación
+        if (authError.message.includes('Invalid login credentials')) {
+          setError('El usuario o la contraseña no coinciden con nuestros registros.');
+        } else {
+          setError('Ocurrió un inconveniente al evaluar tus credenciales. Por favor, inténtalo de nuevo.');
+        }
+      } else {
+        router.replace('/(app)/(tabs)');
+      }
+    } catch (err) {
+      setError('Error inesperado durante la inspección de la cuenta.');
+    } finally {
+      setLoading(false);
     }
   };
 

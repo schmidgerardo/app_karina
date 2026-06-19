@@ -10,6 +10,7 @@ export default function AppLayout() {
       <Stack.Screen name="juego/unir" />
       <Stack.Screen name="juego/opciones" />
       <Stack.Screen name="juego/dictado" />
+      {/* Cambio revertido: ruta de pronunciación temporal removida para evitar crash */}
       <Stack.Screen name="audios/index" />
     </Stack>
   );

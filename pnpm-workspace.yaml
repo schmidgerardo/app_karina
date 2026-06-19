@@ -1,5 +1,8 @@
 packages:
   - packages/*
+allowBuilds:
+  '@sentry/cli': true
+  esbuild: true
 allowUnusedPatches: true
 catalog:
   "@expo/metro-runtime": 55.0.11

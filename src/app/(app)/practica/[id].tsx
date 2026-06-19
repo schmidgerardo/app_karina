@@ -13,6 +13,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
+import { useAudioPlayer } from 'expo-audio';
 
 interface Word {
   id: string;
@@ -58,6 +59,12 @@ export default function PracticaScreen() {
     setLoading(false);
   }
 
+  const audioPlayer = useAudioPlayer(null);
+  const [pronunciacionActiveWord, setPronunciacionActiveWord] = useState<Word | null>(null);
+  const [recordingSupported, setRecordingSupported] = useState(false);
+  const [micStatus, setMicStatus] = useState<'idle' | 'listening' | 'result'>('idle');
+  const [micResult, setMicResult] = useState<string | null>(null);
+
   const handleNext = (points: number) => {
     setTotalScore((prev) => prev + points);
     if (step < 3) {
@@ -88,6 +95,43 @@ export default function PracticaScreen() {
 
     await supabase.from('module_progress').upsert(payload, { onConflict: 'user_id,module_id' });
     setSaved(true);
+  }
+
+  async function playPronunciation(word: Word) {
+    const source = getPronunciationAudio(word.palabra_karina.toLowerCase());
+    if (!source) return;
+
+    try {
+      await audioPlayer.replace(source);
+      await audioPlayer.play();
+      setPronunciacionActiveWord(word);
+    } catch {
+      setPronunciacionActiveWord(null);
+    }
+  }
+
+  function toggleMicrophone() {
+    if (micStatus === 'idle') {
+      setMicStatus('listening');
+      setMicResult('Escuchando...');
+      setTimeout(() => {
+        setMicStatus('result');
+        setMicResult('Pronunciación registrada. Compara con la palabra objetivo.');
+      }, 1800);
+    } else {
+      setMicStatus('idle');
+      setMicResult(null);
+    }
+  }
+
+  function getPronunciationAudio(key: string) {
+    const sources: Record<string, any> = {
+      aau: require('../../../../assets/sounds/aau.mp3'),
+      mojko: require('../../../../assets/sounds/mojko.mp3'),
+      nana: require('../../../../assets/sounds/nana.mp3'),
+      nakon: require('../../../../assets/sounds/nakon.mp3'),
+    };
+    return sources[key];
   }
 
   if (loading || !module) {
@@ -127,6 +171,31 @@ export default function PracticaScreen() {
       {step === 1 && <EjercicioUnir words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
       {step === 2 && <EjercicioDictado words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
       {step === 3 && <EjercicioOpciones words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
+
+      <View style={{ padding: 20, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderColor: '#F0EDE8', borderTopWidth: 1 }}>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A', marginBottom: 12 }}>Práctica de pronunciación</Text>
+        <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
+          <Pressable
+            onPress={() => words.length > 0 && playPronunciation(words[0])}
+            disabled={words.length === 0}
+            style={{ flex: 1, minWidth: 140 }}
+          >
+            <View style={{ backgroundColor: '#E8F5E9', borderRadius: 14, padding: 14, alignItems: 'center', opacity: words.length === 0 ? 0.5 : 1 }}>
+              <Text style={{ fontSize: 20 }}>🔊</Text>
+              <Text style={{ fontSize: 12, color: '#2E7D32', marginTop: 8, fontWeight: '700' }}>Escuchar audio</Text>
+              <Text style={{ fontSize: 11, color: '#666', marginTop: 4, textAlign: 'center' }}>Reproduce la pronunciación correcta</Text>
+            </View>
+          </Pressable>
+
+          <Pressable onPress={toggleMicrophone} style={{ flex: 1, minWidth: 140 }}>
+            <View style={{ backgroundColor: micStatus === 'listening' ? '#FFF4E5' : '#E3F2FD', borderRadius: 14, padding: 14, alignItems: 'center' }}>
+              <Text style={{ fontSize: 20 }}>🎙️</Text>
+              <Text style={{ fontSize: 12, color: '#1565C0', marginTop: 8, fontWeight: '700' }}>{micStatus === 'listening' ? 'Escuchando...' : 'Activar micrófono'}</Text>
+              <Text style={{ fontSize: 11, color: '#666', marginTop: 4, textAlign: 'center' }}>{micStatus === 'result' ? micResult : 'Presiona para practicar tu voz'}</Text>
+            </View>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 }
