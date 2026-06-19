@@ -14,7 +14,7 @@ import { supabase } from '@/client/supabase';
 
 export default function SignInScreen() {
   const router = useRouter();
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -22,11 +22,11 @@ export default function SignInScreen() {
   const [agreed, setAgreed] = useState(false);
 
   const handleLogin = async () => {
-    const trimmedUser = username.trim();
+    const trimmedEmail = email.trim();
     const trimmedPass = password.trim();
 
-    if (!trimmedUser || !trimmedPass) {
-      setError('Por favor, ingresa tu nombre de usuario y contraseña.');
+    if (!trimmedEmail || !trimmedPass) {
+      setError('Por favor, ingresa tu email y contraseña.');
       return;
     }
     if (!agreed) {
@@ -39,7 +39,7 @@ export default function SignInScreen() {
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: `${trimmedUser}@miaoda.com`,
+        email: trimmedEmail,
         password: trimmedPass,
       });
 
@@ -91,12 +91,12 @@ export default function SignInScreen() {
             {/* Usuario */}
             <View>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
-                Usuario
+                Correo
               </Text>
               <TextInput
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Tu usuario"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Tu correo electrónico"
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 autoCapitalize="none"
                 style={{
