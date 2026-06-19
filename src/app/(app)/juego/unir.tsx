@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View, Dimensions } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -21,6 +21,9 @@ interface WordBox {
   height: number;
 }
 
+// Declaramos el componente animado fuera para evitar re-renderizados costosos
+const AnimatedLine = Animated.createAnimatedComponent(Line);
+
 export default function JuegoUnirScreen() {
   const router = useRouter();
   const [allWords, setAllWords] = useState<Word[]>([]);
@@ -33,21 +36,20 @@ export default function JuegoUnirScreen() {
   const [gameOver, setGameOver] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
-  // Estado para las palabras mezcladas
   const [karinaList, setKarinaList] = useState<string[]>([]);
   const [espanolList, setEspanolList] = useState<string[]>([]);
   
-  // Posiciones de los elementos
   const [karinaBoxes, setKarinaBoxes] = useState<Record<string, WordBox>>({});
   const [espanolBoxes, setEspanolBoxes] = useState<Record<string, WordBox>>({});
   
-  // Gestos
+  // Shared values para Reanimated (las líneas del arrastre)
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const endX = useSharedValue(0);
   const endY = useSharedValue(0);
   const isDragging = useSharedValue(false);
   const lineColor = useSharedValue('#4CAF50');
+  
   const [activeWord, setActiveWord] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -59,12 +61,20 @@ export default function JuegoUnirScreen() {
 
   async function loadWords() {
     setLoading(true);
-    const { data } = await supabase
+    // Jalamos los datos usando tus columnas reales confirmadas
+    const { data, error } = await supabase
       .from('words')
-      .select('id, palabra_karina, significado_espanol')
+      .select('id, palabra_karina, significado_espanol') 
       .limit(50);
-    if (data) {
-      const words = shuffleArray(data as Word[]);
+
+    if (error) {
+      console.error("Error cargando palabras:", error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (data && data.length > 0) {
+      const words = shuffleArray([...data] as Word[]);
       setAllWords(words);
       startNewRound(words);
     }
@@ -72,20 +82,21 @@ export default function JuegoUnirScreen() {
   }
 
   function startNewRound(words: Word[]) {
-    const selected = shuffleArray(words).slice(0, 4);
+    if (!words || words.length < 4) return;
+    
+    const selected = shuffleArray([...words]).slice(0, 4);
     setCurrentWords(selected);
     setMatchedKarina(new Set());
     setMatchedEspanol(new Set());
     setActiveWord(null);
     setFeedback(null);
     
-    // Mezclar las listas
     const karinas = selected.map(w => w.palabra_karina);
     const espanols = selected.map(w => w.significado_espanol);
+    
     setKarinaList(shuffleArray(karinas));
     setEspanolList(shuffleArray(espanols));
     
-    // Limpiar posiciones
     setKarinaBoxes({});
     setEspanolBoxes({});
   }
@@ -116,30 +127,22 @@ export default function JuegoUnirScreen() {
     }
     
     if (pair.significado_espanol === espanolWord) {
-      // Acierto
-      if (!matchedKarina.has(karinaWord)) {
-        showFeedback('✅ ¡Correcto! +10 puntos', 'success');
-        setMatchedKarina(prev => new Set([...prev, karinaWord]));
-        setMatchedEspanol(prev => new Set([...prev, espanolWord]));
-        setScore(s => s + 10);
-        lineColor.value = '#4CAF50';
-        
-        // Verificar si completó la ronda
-        if (matchedKarina.size + 1 === currentWords.length) {
-          setTimeout(() => {
-            if (round >= 3) {
-              setGameOver(true);
-            } else {
-              nextRound();
-            }
-          }, 1500);
-        }
-      } else {
-        showFeedback('⚠️ Ya emparejaste esta palabra', 'error');
-        lineColor.value = '#FF9800';
+      showFeedback('✅ ¡Correcto! +10 puntos', 'success');
+      setMatchedKarina(prev => new Set([...prev, karinaWord]));
+      setMatchedEspanol(prev => new Set([...prev, espanolWord]));
+      setScore(s => s + 10);
+      lineColor.value = '#4CAF50';
+      
+      if (matchedKarina.size + 1 === currentWords.length) {
+        setTimeout(() => {
+          if (round >= 3) {
+            setGameOver(true);
+          } else {
+            nextRound();
+          }
+        }, 1500);
       }
     } else {
-      // Error
       const correctMatch = currentWords.find(w => w.palabra_karina === karinaWord);
       showFeedback(`❌ "${karinaWord}" significa "${correctMatch?.significado_espanol}", no "${espanolWord}"`, 'error');
       lineColor.value = '#F44336';
@@ -164,12 +167,11 @@ export default function JuegoUnirScreen() {
       
       const { absoluteX, absoluteY } = e;
       
-      // Buscar qué palabra Kariña fue tocada
       for (const [word, box] of Object.entries(karinaBoxes)) {
         if (!matchedKarina.has(word) &&
             absoluteX >= box.x && absoluteX <= box.x + box.width &&
             absoluteY >= box.y && absoluteY <= box.y + box.height) {
-          setActiveWord(word);
+          runOnJS(setActiveWord)(word);
           startX.value = absoluteX;
           startY.value = absoluteY;
           endX.value = absoluteX;
@@ -188,22 +190,24 @@ export default function JuegoUnirScreen() {
     .onEnd((e) => {
       if (isDragging.value && !isProcessing && activeWord) {
         const { absoluteX, absoluteY } = e;
+        let found = false;
         
-        // Buscar sobre qué palabra Español se soltó
         for (const [word, box] of Object.entries(espanolBoxes)) {
           if (!matchedEspanol.has(word) &&
               absoluteX >= box.x && absoluteX <= box.x + box.width &&
               absoluteY >= box.y && absoluteY <= box.y + box.height) {
+            found = true;
             runOnJS(checkMatch)(activeWord, word);
-            return;
+            break;
           }
         }
         
-        // No se soltó sobre ninguna palabra válida
-        showFeedback('💡 Arrastra hasta una palabra en español', 'error');
-        resetLine();
+        if (!found) {
+          runOnJS(showFeedback)('💡 Arrastra hasta una palabra en español', 'error');
+          runOnJS(resetLine)();
+        }
       } else {
-        resetLine();
+        runOnJS(resetLine)();
       }
     });
 
@@ -278,10 +282,6 @@ export default function JuegoUnirScreen() {
             borderRadius: 10,
             zIndex: 1000,
             alignItems: 'center',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
             elevation: 5,
           }}>
             <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
@@ -291,23 +291,18 @@ export default function JuegoUnirScreen() {
         )}
 
         {/* Game Area */}
-        <ScrollView 
-          contentContainerStyle={{ padding: 20 }}
-          scrollEnabled={false}
-        >
+        <ScrollView contentContainerStyle={{ padding: 20 }} scrollEnabled={false}>
           <Text style={{ textAlign: 'center', color: '#666', marginBottom: 20 }}>
             Arrastra desde la palabra Kariña hasta su traducción en español
           </Text>
 
           <GestureDetector gesture={gesture}>
             <View style={{ flexDirection: 'row', gap: 20, position: 'relative' }}>
-              {/* SVG Layer */}
+              
+              {/* Capa SVG para dibujar la línea */}
               <View style={{ 
                 position: 'absolute', 
-                top: 0, 
-                left: 0, 
-                right: 0, 
-                bottom: 0, 
+                top: 0, left: 0, right: 0, bottom: 0, 
                 pointerEvents: 'none',
                 zIndex: 10 
               }}>
@@ -316,7 +311,7 @@ export default function JuegoUnirScreen() {
                 </Svg>
               </View>
 
-              {/* Kariña Column */}
+              {/* Columna Kariña */}
               <View style={{ flex: 1, gap: 12 }}>
                 <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#2E7D32', marginBottom: 10, textAlign: 'center' }}>
                   KARIÑA
@@ -326,24 +321,19 @@ export default function JuegoUnirScreen() {
                   return (
                     <View
                       key={word}
-                      ref={ref => {
-                        if (ref && !isMatched) {
-                          ref.measure((x, y, width, height, pageX, pageY) => {
-                            setKarinaBoxes(prev => ({
-                              ...prev,
-                              [word]: { word, x: pageX, y: pageY, width, height }
-                            }));
-                          });
-                        }
+                      onLayout={(e) => {
+                        // onLayout captura de forma nativa la posición exacta de los contenedores
+                        e.target.measure((x, y, width, height, pageX, pageY) => {
+                          if (pageX && pageY) {
+                            setKarinaBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
+                          }
+                        });
                       }}
                       style={{
                         backgroundColor: isMatched ? '#C8E6C9' : activeWord === word ? '#A5D6A7' : '#FFF',
-                        padding: 16,
-                        borderRadius: 12,
-                        borderWidth: 2,
+                        padding: 16, borderRadius: 12, borderWidth: 2,
                         borderColor: isMatched ? '#4CAF50' : activeWord === word ? '#4CAF50' : '#E0E0E0',
-                        opacity: isMatched ? 0.6 : 1,
-                        alignItems: 'center',
+                        opacity: isMatched ? 0.6 : 1, alignItems: 'center',
                       }}
                     >
                       <Text style={{ fontSize: 16, fontWeight: '600', color: '#333' }}>{word}</Text>
@@ -353,7 +343,7 @@ export default function JuegoUnirScreen() {
                 })}
               </View>
 
-              {/* Español Column */}
+              {/* Columna Español */}
               <View style={{ flex: 1, gap: 12 }}>
                 <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1565C0', marginBottom: 10, textAlign: 'center' }}>
                   ESPAÑOL
@@ -363,24 +353,18 @@ export default function JuegoUnirScreen() {
                   return (
                     <View
                       key={word}
-                      ref={ref => {
-                        if (ref && !isMatched) {
-                          ref.measure((x, y, width, height, pageX, pageY) => {
-                            setEspanolBoxes(prev => ({
-                              ...prev,
-                              [word]: { word, x: pageX, y: pageY, width, height }
-                            }));
-                          });
-                        }
+                      onLayout={(e) => {
+                        e.target.measure((x, y, width, height, pageX, pageY) => {
+                          if (pageX && pageY) {
+                            setEspanolBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
+                          }
+                        });
                       }}
                       style={{
                         backgroundColor: isMatched ? '#C8E6C9' : '#FFF',
-                        padding: 16,
-                        borderRadius: 12,
-                        borderWidth: 2,
+                        padding: 16, borderRadius: 12, borderWidth: 2,
                         borderColor: isMatched ? '#4CAF50' : '#E0E0E0',
-                        opacity: isMatched ? 0.6 : 1,
-                        alignItems: 'center',
+                        opacity: isMatched ? 0.6 : 1, alignItems: 'center',
                       }}
                     >
                       <Text style={{ fontSize: 16, fontWeight: '600', color: '#333' }}>{word}</Text>
@@ -392,24 +376,13 @@ export default function JuegoUnirScreen() {
             </View>
           </GestureDetector>
 
-          {/* Progress indicator */}
+          {/* Barra de progreso de la ronda */}
           <View style={{ marginTop: 30, alignItems: 'center' }}>
             <Text style={{ color: '#666' }}>
               Emparejadas: {matchedKarina.size} de {currentWords.length}
             </Text>
-            <View style={{ 
-              width: 200, 
-              height: 8, 
-              backgroundColor: '#E0E0E0', 
-              borderRadius: 4,
-              marginTop: 10,
-              overflow: 'hidden'
-            }}>
-              <View style={{ 
-                width: `${(matchedKarina.size / currentWords.length) * 100}%`, 
-                height: '100%', 
-                backgroundColor: '#4CAF50' 
-              }} />
+            <View style={{ width: 200, height: 8, backgroundColor: '#E0E0E0', borderRadius: 4, marginTop: 10, overflow: 'hidden' }}>
+              <View style={{ width: `${currentWords.length ? (matchedKarina.size / currentWords.length) * 100 : 0}%`, height: '100%', backgroundColor: '#4CAF50' }} />
             </View>
           </View>
         </ScrollView>
@@ -418,12 +391,12 @@ export default function JuegoUnirScreen() {
   );
 }
 
-const AnimatedLine = Animated.createAnimatedComponent(Line);
-
+// Función auxiliar robusta para mezclar los arreglos sin mutar el estado directamente
 function shuffleArray<T>(arr: T[]): T[] {
-  for (let i = arr.length - 1; i > 0; i--) {
+  const newArr = [...arr];
+  for (let i = newArr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
   }
-  return arr;
+  return newArr;
 }
