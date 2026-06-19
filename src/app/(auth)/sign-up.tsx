@@ -12,119 +12,69 @@ import {
 import { useRouter } from 'expo-router';
 import { supabase } from '@/client/supabase';
 
-function generateUsername(nombre: string, apellido: string): string {
-  const n = nombre.trim().toLowerCase().replace(/[^a-z]/g, '').slice(0, 4);
-  const a = apellido.trim().toLowerCase().replace(/[^a-z]/g, '').slice(0, 4);
-  const num = Math.floor(Math.random() * 900) + 100;
-  return `${n}${a}${num}`;
-}
-
 export default function SignUpScreen() {
   const router = useRouter();
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [edad, setEdad] = useState('');
   const [esIndigena, setEsIndigena] = useState(false);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [generatedUser, setGeneratedUser] = useState('');
 
-  const handleContinue = async () => {
-    if (!nombre.trim() || !apellido.trim() || !edad.trim() || !password.trim()) {
+  const handleRegister = async () => {
+    if (loading) return;
+    if (!nombre.trim() || !apellido.trim() || !edad.trim() || !email.trim() || !password.trim()) {
       setError('Completa todos los campos');
       return;
     }
+
     const ageNum = parseInt(edad, 10);
-    if (isNaN(ageNum) || ageNum < 5 || ageNum > 120) {
+    if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
       setError('Ingresa una edad válida');
       return;
     }
+
     if (password.length < 6) {
       setError('La contraseña debe tener al menos 6 caracteres');
       return;
     }
 
-    const username = generateUsername(nombre, apellido);
-    const email = `${username}@miaoda.com`;
-    const fullName = `${nombre.trim()} ${apellido.trim()}`;
-
     setError('');
     setLoading(true);
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          avatar_url: '',
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            nombre: nombre.trim(),
+            apellido: apellido.trim(),
+            edad: ageNum,
+            comunidad_indigena: esIndigena,
+          },
         },
-      },
-    });
+      });
 
-    if (authError) {
-      setLoading(false);
-      setError(authError.message === 'User already registered'
-        ? 'Este usuario ya está registrado'
-        : 'Error al registrarse. Intenta de nuevo.'
-      );
-      return;
-    }
-
-    // Update profile with extra fields
-    if (authData.user) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          username,
-          nombre: nombre.trim(),
-          apellido: apellido.trim(),
-          edad: ageNum,
-          es_indigena: esIndigena,
-        })
-        .eq('id', authData.user.id);
-
-      if (profileError) {
-        setLoading(false);
-        setError('Error al guardar el perfil');
+      if (error) {
+        setError(error.message || 'Error al registrarse. Intenta de nuevo.');
         return;
       }
+
+      if (data?.user) {
+        alert('¡Registro exitoso! Ya puedes ingresar.');
+        router.replace('/(auth)/sign-in');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('Error al registrarse. Intenta de nuevo.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
-    setGeneratedUser(username);
   };
-
-  if (generatedUser) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#1B5E20', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
-        <Text style={{ fontSize: 48 }}>🎉</Text>
-        <Text style={{ fontSize: 22, fontWeight: '900', color: '#FFFFFF', marginTop: 16, textAlign: 'center' }}>
-          ¡Registro exitoso!
-        </Text>
-        <Text style={{ fontSize: 14, color: '#F59E0B', marginTop: 8, textAlign: 'center' }}>
-          Tu usuario es:
-        </Text>
-        <View style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 12, paddingHorizontal: 24, paddingVertical: 12, marginTop: 12 }}>
-          <Text style={{ fontSize: 18, fontWeight: '800', color: '#FFFFFF' }}>
-            {generatedUser}
-          </Text>
-        </View>
-        <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', marginTop: 12, textAlign: 'center' }}>
-          Guarda tu usuario para iniciar sesión
-        </Text>
-        <Pressable onPress={() => router.replace('/(auth)/sign-in')} style={{ marginTop: 24 }}>
-          <View style={{ backgroundColor: '#F59E0B', borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 }}>
-            <Text style={{ color: '#1B5E20', fontSize: 16, fontWeight: '800' }}>
-              Ir al inicio de sesión
-            </Text>
-          </View>
-        </Pressable>
-      </View>
-    );
-  }
 
   return (
     <KeyboardAvoidingView
@@ -144,7 +94,6 @@ export default function SignUpScreen() {
         </Text>
 
         <View style={{ marginTop: 24, gap: 14 }}>
-          {/* Nombre */}
           <View>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
               Nombre
@@ -158,7 +107,6 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* Apellido */}
           <View>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
               Apellido
@@ -172,7 +120,6 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* Edad */}
           <View>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
               Edad
@@ -187,7 +134,6 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* Es indígena */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }}>
             <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>
               ¿Perteneces a una comunidad indígena?
@@ -200,7 +146,21 @@ export default function SignUpScreen() {
             />
           </View>
 
-          {/* Contraseña */}
+          <View>
+            <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
+              Correo electrónico
+            </Text>
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="example@mail.com"
+              placeholderTextColor="rgba(255,255,255,0.4)"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={inputStyle}
+            />
+          </View>
+
           <View>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', marginBottom: 6, fontWeight: '600' }}>
               Contraseña
@@ -225,15 +185,13 @@ export default function SignUpScreen() {
             </View>
           </View>
 
-          {/* Error */}
           {error ? (
             <Text style={{ color: '#FF6B6B', fontSize: 12, textAlign: 'center' }}>
               {error}
             </Text>
           ) : null}
 
-          {/* Botón Continuar */}
-          <Pressable onPress={handleContinue} disabled={loading}>
+          <Pressable onPress={handleRegister} disabled={loading}>
             <View
               style={{
                 backgroundColor: '#F59E0B',
@@ -253,7 +211,6 @@ export default function SignUpScreen() {
             </View>
           </Pressable>
 
-          {/* Volver */}
           <Pressable onPress={() => router.back()}>
             <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 4, marginTop: 8 }}>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
