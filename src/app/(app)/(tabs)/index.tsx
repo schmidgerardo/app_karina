@@ -13,8 +13,7 @@ const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f0
 
 interface ProgressItem {
   module_id: number;
-  completed: boolean;
-  xp: number;
+  completed_at?: string | null;
 }
 
 const SABIAS_QUE = [
@@ -131,22 +130,22 @@ export default function HomeScreen() {
     if (session?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('nombre, username, idioma')
+        .select('full_name, username, idioma')
         .eq('id', session.user.id)
         .single();
       if (profile) {
-        setUserName(profile.nombre || profile.username || 'Usuario');
+        setUserName(profile.full_name || profile.username || 'Usuario');
         if (profile.idioma) setIdioma(profile.idioma);
       }
 
       const { data: progData } = await supabase
         .from('module_progress')
-        .select('module_id, completed, xp')
+        .select('module_id, completed_at')
         .eq('user_id', session.user.id);
 
       if (progData) {
         setProgress(progData as ProgressItem[]);
-        setTotalXp(progData.reduce((sum, p) => sum + (p.xp || 0), 0));
+        setTotalXp(0);
       }
     }
 
@@ -160,7 +159,7 @@ export default function HomeScreen() {
     setIdioma(nuevo);
   }
 
-  const completedCount = progress.filter((p) => p.completed).length;
+  const completedCount = progress.filter((p) => Boolean(p.completed_at)).length;
   const progressPercent = modulesCount > 0 ? (completedCount / modulesCount) * 100 : 0;
 
   if (loading) {

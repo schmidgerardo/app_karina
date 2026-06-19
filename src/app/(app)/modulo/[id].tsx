@@ -8,16 +8,16 @@ import { supabase } from '@/client/supabase';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
 }
 
 interface Module {
   id: number;
-  titulo_espanol: string;
-  titulo_karina: string;
-  imagen_url: string;
-  color: string;
-  descripcion: string;
+  titulo?: string;
+  titulo_karina?: string;
+  imagen_url?: string;
+  color?: string | null;
+  descripcion?: string;
 }
 
 export default function ModuloDetailScreen() {
@@ -49,7 +49,7 @@ export default function ModuloDetailScreen() {
 
     const { data: wordsData } = await supabase
       .from('words')
-      .select('id, palabra_karina, traduccion_espanol')
+      .select('id, palabra_karina, significado_espanol')
       .eq('module_id', moduleId)
       .order('palabra_karina');
 
@@ -82,7 +82,7 @@ export default function ModuloDetailScreen() {
           <Image source={{ uri: module.imagen_url }} style={{ width: 70, height: 70, borderRadius: 12 }} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700' }}>{module.titulo_karina}</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900' }}>{module.titulo_espanol}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900' }}>{module.titulo}</Text>
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{module.descripcion}</Text>
           </View>
         </View>
@@ -108,8 +108,8 @@ export default function ModuloDetailScreen() {
         ListHeaderComponent={
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A' }}>Palabras del módulo</Text>
-            <View style={{ backgroundColor: `${module.color}18`, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 }}>
-              <Text style={{ fontSize: 11, color: module.color, fontWeight: '700' }}>{words.length} palabras</Text>
+            <View style={{ backgroundColor: `${module.color || '#1B5E20'}18`, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 }}>
+              <Text style={{ fontSize: 11, color: module.color || '#1B5E20', fontWeight: '700' }}>{words.length} palabras</Text>
             </View>
           </View>
         }
@@ -132,7 +132,7 @@ export default function ModuloDetailScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{item.palabra_karina}</Text>
-              <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{item.traduccion_espanol}</Text>
+              <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{item.significado_espanol}</Text>
             </View>
           </View>
         )}

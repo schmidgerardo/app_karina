@@ -8,7 +8,7 @@ import { supabase } from '@/client/supabase';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
   audio_url: string | null;
 }
 
@@ -38,7 +38,7 @@ export default function AudiosRepasoScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('words')
-      .select('id, palabra_karina, traduccion_espanol')
+      .select('id, palabra_karina, significado_espanol')
       .order('palabra_karina', { ascending: true })
       .limit(80);
 
@@ -119,7 +119,7 @@ export default function AudiosRepasoScreen() {
               </Pressable>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{word.palabra_karina}</Text>
-                <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{word.traduccion_espanol}</Text>
+                <Text style={{ fontSize: 12, color: '#666', marginTop: 2 }}>{word.significado_espanol}</Text>
                 {!hasAudio && <Text style={{ fontSize: 10, color: '#888', marginTop: 2 }}>Audio próximamente</Text>}
               </View>
             </View>

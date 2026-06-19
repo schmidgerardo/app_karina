@@ -17,7 +17,7 @@ import { supabase } from '@/client/supabase';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
   audio_url?: string;
 }
 
@@ -46,7 +46,7 @@ export default function PracticarPronunciacionScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('words')
-      .select('id, palabra_karina, traduccion_espanol');
+      .select('id, palabra_karina, significado_espanol');
     
     if (data) {
       setWords(data as Word[]);
@@ -237,7 +237,7 @@ export default function PracticarPronunciacionScreen() {
           <Text style={styles.wordLabel}>Palabra Kariña</Text>
           <Text style={styles.wordText}>{currentWord?.palabra_karina}</Text>
           <Text style={styles.translationText}>
-            {currentWord?.traduccion_espanol}
+            {currentWord?.significado_espanol}
           </Text>
         </View>
 

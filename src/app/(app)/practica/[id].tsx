@@ -18,13 +18,13 @@ import { useAudioPlayer } from 'expo-audio';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
 }
 
 interface Module {
   id: number;
-  titulo_espanol: string;
-  color: string;
+  titulo: string;
+  color?: string | null;
 }
 
 export default function PracticaScreen() {
@@ -49,10 +49,10 @@ export default function PracticaScreen() {
     setLoading(true);
     const moduleId = parseInt(String(id), 10);
 
-    const { data: mod } = await supabase.from('modules').select('id, titulo_espanol, color').eq('id', moduleId).single();
+    const { data: mod } = await supabase.from('modules').select('id, titulo').eq('id', moduleId).single();
     if (mod) setModule(mod as Module);
 
-    const { data: wds } = await supabase.from('words').select('id, palabra_karina, traduccion_espanol').eq('module_id', moduleId);
+    const { data: wds } = await supabase.from('words').select('id, palabra_karina, significado_espanol').eq('module_id', moduleId);
     if (wds) setWords(wds as Word[]);
 
     setStep(1);
@@ -156,7 +156,7 @@ export default function PracticaScreen() {
             <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Módulo</Text>
           </View>
         </Pressable>
-        <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>Práctica: {module.titulo_espanol}</Text>
+        <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>Práctica: {module.titulo}</Text>
         {/* Barra de progreso de ejercicios */}
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
           {[1, 2, 3].map((s) => (
@@ -208,7 +208,7 @@ function EjercicioUnir({ words, moduleColor, onNext }: { words: Word[]; moduleCo
   const [wrongPair, setWrongPair] = useState<string | null>(null);
 
   const karinaWords = shuffleArray(pairs.map((w) => w.palabra_karina));
-  const espanolWords = shuffleArray(pairs.map((w) => w.traduccion_espanol));
+  const espanolWords = shuffleArray(pairs.map((w) => w.significado_espanol));
 
   function handleSelectKarina(word: string) {
     if (matched.has(word)) return;
@@ -219,7 +219,7 @@ function EjercicioUnir({ words, moduleColor, onNext }: { words: Word[]; moduleCo
   function handleSelectEspanol(espanol: string) {
     if (!selectedKarina) return;
     const pair = pairs.find((p) => p.palabra_karina === selectedKarina);
-    if (pair && pair.traduccion_espanol === espanol) {
+    if (pair && pair.significado_espanol === espanol) {
       setMatched(new Set([...matched, selectedKarina]));
       setSelectedKarina(null);
       setWrongPair(null);
@@ -265,7 +265,7 @@ function EjercicioUnir({ words, moduleColor, onNext }: { words: Word[]; moduleCo
         <View style={{ flex: 1, gap: 10 }}>
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#1565C0', marginBottom: 4 }}>ESPAÑOL</Text>
           {espanolWords.map((word) => {
-            const isMatched = pairs.some((p) => p.traduccion_espanol === word && matched.has(p.palabra_karina));
+            const isMatched = pairs.some((p) => p.significado_espanol === word && matched.has(p.palabra_karina));
             return (
               <Pressable key={word} onPress={() => handleSelectEspanol(word)} disabled={isMatched}>
                 <View
@@ -323,7 +323,7 @@ function EjercicioDictado({ words, moduleColor, onNext }: { words: Word[]; modul
       <Text style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Escucha la palabra y escríbela en Kariña</Text>
 
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center' }}>
-        <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Pista: {target.traduccion_espanol}</Text>
+        <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Pista: {target.significado_espanol}</Text>
         <View style={{ backgroundColor: `${moduleColor}18`, borderRadius: 50, padding: 16, marginBottom: 8 }}>
           <Text style={{ fontSize: 32 }}>🎧</Text>
         </View>
@@ -468,7 +468,7 @@ function EjercicioOpciones({ words, moduleColor, onNext }: { words: Word[]; modu
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A2E1A' }}>{opt.palabra_karina}</Text>
-                  <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{opt.traduccion_espanol}</Text>
+                  <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{opt.significado_espanol}</Text>
                 </View>
                 {checked && isCorrect && <Text style={{ fontSize: 20 }}>✅</Text>}
                 {checked && isSelected && !isCorrect && <Text style={{ fontSize: 20 }}>❌</Text>}

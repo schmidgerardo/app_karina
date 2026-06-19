@@ -9,12 +9,11 @@ import { useSession } from '@/ctx';
 
 interface Profile {
   username: string;
-  nombre: string;
-  apellido: string;
-  edad: number;
-  es_indigena: boolean;
-  role: string;
-  avatar_url: string | null;
+  full_name?: string | null;
+  edad?: number | null;
+  pertenece_comunidad?: boolean;
+  avatar_url?: string | null;
+  website?: string | null;
 }
 
 export default function PerfilScreen() {
@@ -38,7 +37,7 @@ export default function PerfilScreen() {
     if (session?.user?.id) {
       const { data } = await supabase
         .from('profiles')
-        .select('username, nombre, apellido, edad, es_indigena, role, avatar_url')
+        .select('username, full_name, edad, pertenece_comunidad, avatar_url, website')
         .eq('id', session.user.id)
         .single();
       if (data) {
@@ -115,8 +114,8 @@ export default function PerfilScreen() {
     );
   }
 
-  const displayName = profile?.nombre && profile?.apellido
-    ? `${profile.nombre} ${profile.apellido}`
+  const displayName = profile?.full_name
+    ? profile.full_name
     : profile?.username || 'Usuario';
 
   return (
@@ -193,11 +192,10 @@ export default function PerfilScreen() {
         <View style={{ padding: 20, gap: 12 }}>
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginBottom: 4 }}>Información personal</Text>
 
-          <InfoCard label="Nombre" value={profile?.nombre || '-'} />
-          <InfoCard label="Apellido" value={profile?.apellido || '-'} />
+          <InfoCard label="Nombre completo" value={profile?.full_name || profile?.username || '-'} />
           <InfoCard label="Edad" value={profile?.edad ? `${profile.edad} años` : '-'} />
-          <InfoCard label="Comunidad indígena" value={profile?.es_indigena ? 'Sí' : 'No'} />
-          <InfoCard label="Rol" value={profile?.role === 'admin' ? 'Administrador' : 'Usuario'} />
+          <InfoCard label="Comunidad indígena" value={profile?.pertenece_comunidad ? 'Sí' : 'No'} />
+          <InfoCard label="Sitio web" value={profile?.website || '-'} />
 
           {/* Estadísticas */}
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginTop: 8, marginBottom: 4 }}>Estadísticas de aprendizaje</Text>

@@ -10,7 +10,7 @@ import { supabase } from '@/client/supabase';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
 }
 
 interface WordBox {
@@ -61,7 +61,7 @@ export default function JuegoUnirScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('words')
-      .select('id, palabra_karina, traduccion_espanol')
+      .select('id, palabra_karina, significado_espanol')
       .limit(50);
     if (data) {
       const words = shuffleArray(data as Word[]);
@@ -81,7 +81,7 @@ export default function JuegoUnirScreen() {
     
     // Mezclar las listas
     const karinas = selected.map(w => w.palabra_karina);
-    const espanols = selected.map(w => w.traduccion_espanol);
+    const espanols = selected.map(w => w.significado_espanol);
     setKarinaList(shuffleArray(karinas));
     setEspanolList(shuffleArray(espanols));
     
@@ -115,7 +115,7 @@ export default function JuegoUnirScreen() {
       return;
     }
     
-    if (pair.traduccion_espanol === espanolWord) {
+    if (pair.significado_espanol === espanolWord) {
       // Acierto
       if (!matchedKarina.has(karinaWord)) {
         showFeedback('✅ ¡Correcto! +10 puntos', 'success');
@@ -141,7 +141,7 @@ export default function JuegoUnirScreen() {
     } else {
       // Error
       const correctMatch = currentWords.find(w => w.palabra_karina === karinaWord);
-      showFeedback(`❌ "${karinaWord}" significa "${correctMatch?.traduccion_espanol}", no "${espanolWord}"`, 'error');
+      showFeedback(`❌ "${karinaWord}" significa "${correctMatch?.significado_espanol}", no "${espanolWord}"`, 'error');
       lineColor.value = '#F44336';
     }
     

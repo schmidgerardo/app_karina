@@ -8,7 +8,7 @@ import { supabase } from '@/client/supabase';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
+  significado_espanol: string;
 }
 
 /* eslint-disable no-undef */
@@ -44,7 +44,7 @@ export default function JuegoDictadoScreen() {
     setLoading(true);
     const { data } = await supabase
       .from('words')
-      .select('id, palabra_karina, traduccion_espanol')
+      .select('id, palabra_karina, significado_espanol')
       .in('palabra_karina', AUDIO_WORDS);
     if (data) {
       const words = shuffleArray(data as Word[]);
@@ -146,7 +146,7 @@ export default function JuegoDictadoScreen() {
           <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Escucha el audio y escribe la palabra en Kariña</Text>
 
           <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center', marginBottom: 20 }}>
-            <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Significado: {target?.traduccion_espanol}</Text>
+            <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Significado: {target?.significado_espanol}</Text>
             <Pressable onPress={() => target && playAudioForWord(target)}>
               <View style={{ backgroundColor: '#F59E0B', borderRadius: 50, width: 70, height: 70, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 32 }}>▶️</Text>

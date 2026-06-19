@@ -11,8 +11,8 @@ import { Search, SearchX } from 'lucide-react-native';
 interface Word {
   id: string;
   palabra_karina: string;
-  traduccion_espanol: string;
-  modules: { titulo_espanol: string; color: string }[] | null;
+  significado_espanol: string;
+  modules: { titulo: string }[] | null;
 }
 
 const AUDIO_FILES: Record<string, any> = {
@@ -48,10 +48,10 @@ export default function DiccionarioScreen() {
 
   async function loadWords() {
     setLoading(true);
-    const { data } = await supabase
-      .from('words')
-      .select('id, palabra_karina, traduccion_espanol, modules(titulo_espanol, color)')
-      .order('palabra_karina');
+      const { data } = await supabase
+        .from('words')
+        .select('id, palabra_karina, significado_espanol, modules(titulo)')
+        .order('palabra_karina');
 
     if (data) {
       const typed = data as unknown as Word[];
@@ -92,7 +92,7 @@ export default function DiccionarioScreen() {
       words.filter(
         (w) =>
           w.palabra_karina.toLowerCase().includes(q) ||
-          w.traduccion_espanol.toLowerCase().includes(q)
+          w.significado_espanol.toLowerCase().includes(q)
       )
     );
   }
@@ -158,14 +158,14 @@ export default function DiccionarioScreen() {
                   {item.palabra_karina}
                 </Text>
                 <Text className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-                  {item.traduccion_espanol}
+                  {item.significado_espanol}
                 </Text>
                 {item.modules?.[0] && (
                   <Text
                     className="text-[10px] font-bold uppercase tracking-wider mt-1.5"
                     style={{ color: moduleColor }}
                   >
-                    {item.modules[0].titulo_espanol}
+                    {item.modules[0].titulo}
                   </Text>
                 )}
               </View>
