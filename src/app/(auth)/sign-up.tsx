@@ -48,6 +48,7 @@ export default function SignUpScreen() {
 
     const username = generateUsername(nombre, apellido);
     const email = `${username}@miaoda.com`;
+    const fullName = `${nombre.trim()} ${apellido.trim()}`;
 
     setError('');
     setLoading(true);
@@ -55,6 +56,12 @@ export default function SignUpScreen() {
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          avatar_url: '',
+        },
+      },
     });
 
     if (authError) {
