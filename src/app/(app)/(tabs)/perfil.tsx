@@ -47,12 +47,12 @@ export default function PerfilScreen() {
 
       const { data: progData } = await supabase
         .from('module_progress')
-        .select('xp, completed')
+        .select('module_id, completed_at, xp')
         .eq('user_id', session.user.id);
 
       if (progData) {
         const totalXp = progData.reduce((sum, p) => sum + (p.xp || 0), 0);
-        const completed = progData.filter((p) => p.completed).length;
+        const completed = progData.filter((p) => Boolean(p.completed_at)).length;
         setStats({ totalXp, completed, totalGames: progData.length * 3 });
       }
     }

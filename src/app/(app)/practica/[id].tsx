@@ -511,7 +511,7 @@ function ResultadoCelebracion({ module, score, onContinue }: { module: Module; s
           ¡Módulo completado!
         </Text>
         <Text style={{ fontSize: 14, color: '#666', marginTop: 6, textAlign: 'center' }}>
-          {module.titulo_espanol}
+          {module.titulo}
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 16, marginTop: 24 }}>
