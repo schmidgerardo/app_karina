@@ -13,7 +13,6 @@ interface Profile {
   edad?: number | null;
   pertenece_comunidad?: boolean;
   avatar_url?: string | null;
-  website?: string | null;
 }
 
 export default function PerfilScreen() {
@@ -37,7 +36,7 @@ export default function PerfilScreen() {
     if (session?.user?.id) {
       const { data } = await supabase
         .from('profiles')
-        .select('username, full_name, edad, pertenece_comunidad, avatar_url, website')
+        .select('username, full_name, edad, pertenece_comunidad, avatar_url')
         .eq('id', session.user.id)
         .single();
       if (data) {
@@ -195,7 +194,6 @@ export default function PerfilScreen() {
           <InfoCard label="Nombre completo" value={profile?.full_name || profile?.username || '-'} />
           <InfoCard label="Edad" value={profile?.edad ? `${profile.edad} años` : '-'} />
           <InfoCard label="Comunidad indígena" value={profile?.pertenece_comunidad ? 'Sí' : 'No'} />
-          <InfoCard label="Sitio web" value={profile?.website || '-'} />
 
           {/* Estadísticas */}
           <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginTop: 8, marginBottom: 4 }}>Estadísticas de aprendizaje</Text>
