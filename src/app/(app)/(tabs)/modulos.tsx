@@ -43,7 +43,7 @@ export default function ModulosScreen() {
 
     if (session?.user?.id) {
       const [{ data: progData }, { data: profile }] = await Promise.all([
-        supabase.from('module_progress').select('module_id, completed_at').eq('user_id', session.user.id),
+        supabase.from('module_progress').select('module_id, completed').eq('user_id', session.user.id),
         supabase.from('profiles').select('idioma').eq('id', session.user.id).single(),
       ]);
       if (progData) setProgress(progData as ProgressItem[]);
@@ -102,8 +102,7 @@ export default function ModulosScreen() {
         }
         renderItem={({ item }) => {
           const modProgress = progress.find((p) => p.module_id === item.id);
-          const isCompleted = !!modProgress?.completed_at;
-          return <ModuloItem item={item} isCompleted={isCompleted} idioma={idioma} />;
+          return <ModuloItem item={item} isCompleted={modProgress?.completed || false} idioma={idioma} />;
         }}
       />
     </SafeAreaView>
