@@ -41,7 +41,6 @@ export default function JuegoUnirScreen() {
   const [karinaBoxes, setKarinaBoxes] = useState<Record<string, WordBox>>({});
   const [espanolBoxes, setEspanolBoxes] = useState<Record<string, WordBox>>({});
   
-  // Shared values para las líneas del arrastre
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const endX = useSharedValue(0);
@@ -59,27 +58,34 @@ export default function JuegoUnirScreen() {
   );
 
   async function loadWords() {
-    setLoading(true);
-    const { data, error } = await supabase
-      .from('words')
-      .select('id, palabra_karina, significado_espanol') 
-      .limit(50);
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('words')
+        .select('id, palabra_karina, significado_espanol') 
+        .limit(50);
 
       console.log("¿Hay error en Supabase?:", error);
       console.log("¿Qué datos llegaron de la tabla words?:", data);
 
-    if (error) {
-      console.error("Error cargando palabras:", error.message);
-      setLoading(false);
-      return;
-    }
+      if (error) {
+        console.error("Error cargando palabras:", error.message);
+        setLoading(false);
+        return;
+      }
 
-    if (data && data.length > 0) {
-      const words = shuffleArray([...data] as Word[]);
-      setAllWords(words);
-      startNewRound(words);
+      if (data && data.length >= 4) {
+        const words = shuffleArray([...data] as Word[]);
+        setAllWords(words);
+        startNewRound(words);
+      } else {
+        console.warn("No hay suficientes palabras en la base de datos (mínimo 4).");
+      }
+    } catch (e) {
+      console.error("Excepción en loadWords:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   function startNewRound(words: Word[]) {
@@ -230,27 +236,16 @@ export default function JuegoUnirScreen() {
     );
   }
 
-  if (gameOver) {
+  // 🛡️ ESCUDO PROTECTOR: Si no se cargaron palabras, muestra un aviso limpio en vez de colapsar
+  if (!allWords || allWords.length < 4) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ fontSize: 64 }}>🏆</Text>
-        <Text style={{ fontSize: 28, fontWeight: 'bold', color: '#2E7D32', marginTop: 20 }}>¡Juego Completado!</Text>
-        <Text style={{ fontSize: 20, color: '#FF9800', fontWeight: 'bold', marginTop: 10 }}>Puntaje: {score} pts</Text>
-        <Pressable 
-          onPress={() => {
-            setGameOver(false);
-            setScore(0);
-            setRound(1);
-            loadWords();
-          }} 
-          style={{ marginTop: 30 }}
-        >
-          <View style={{ backgroundColor: '#2E7D32', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 25 }}>
-            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold' }}>Jugar de nuevo</Text>
-          </View>
-        </Pressable>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 15 }}>
-          <Text style={{ color: '#666', fontSize: 14 }}>← Volver</Text>
+        <Text style={{ fontSize: 48 }}>⚠️</Text>
+        <Text style={{ fontSize: 16, color: '#666', textAlign: 'center', marginTop: 12, fontWeight: '600' }}>
+          No se encontraron palabras suficientes en la base de datos para iniciar este juego.
+        </Text>
+        <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: '#2E7D32', fontWeight: 'bold' }}>← Volver al menú</Text>
         </Pressable>
       </SafeAreaView>
     );
@@ -312,7 +307,6 @@ export default function JuegoUnirScreen() {
                     <View
                       key={word}
                       onLayout={(e) => {
-                        // Agregamos un leve delay asíncrono para asegurar que measure capture las coordenadas reales en Web
                         setTimeout(() => {
                           e.target.measure((x, y, width, height, pageX, pageY) => {
                             if (width && height && pageX && pageY) {
