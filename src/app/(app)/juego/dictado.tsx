@@ -1,256 +1,864 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
+import { useSession } from '@/ctx';
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
+  audio_url: string | null;
 }
 
-/* eslint-disable no-undef */
-const AUDIO_MAP: Record<string, any> = {
-  aau: require('../../../../assets/sounds/aau.mp3'),
-  mojko: require('../../../../assets/sounds/mojko.mp3'),
-  nana: require('../../../../assets/sounds/nana.mp3'),
-  nakon: require('../../../../assets/sounds/nakon.mp3'),
-};
-/* eslint-enable no-undef */
-
-const AUDIO_WORDS = ['aau', 'mojko', 'nana', 'nakon'];
+interface AnagramLetter {
+  id: string;
+  char: string;
+  isSelected: boolean;
+}
 
 export default function JuegoDictadoScreen() {
   const router = useRouter();
-  const [audioWords, setAudioWords] = useState<Word[]>([]);
+  const { modulo_id } = useLocalSearchParams();
+  const { session } = useSession();
+
+  // Parse and normalize modulo_id
+  const parsedModuloId = modulo_id
+    ? (/^\d+$/.test(String(modulo_id)) ? parseInt(String(modulo_id), 10) : String(modulo_id))
+    : null;
+
+  const [allWords, setAllWords] = useState<Word[]>([]);
   const [target, setTarget] = useState<Word | null>(null);
   const [loading, setLoading] = useState(true);
-  const [answer, setAnswer] = useState('');
-  const [checked, setChecked] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Anagram states
+  const [lettersPool, setLettersPool] = useState<AnagramLetter[]>([]);
+  const [assembledLetters, setAssembledLetters] = useState<AnagramLetter[]>([]);
+  
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [roundChecked, setRoundChecked] = useState(false);
+  const [roundCorrect, setRoundCorrect] = useState(false);
   const [gameOver, setGameOver] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
+
   const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+  const isPlaying = status.playing;
 
   useFocusEffect(
     useCallback(() => {
       loadWords();
-    }, [])
+    }, [modulo_id])
   );
 
   async function loadWords() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('words')
-      .select('id, palabra_karina, significado_espanol')
-      .in('palabra_karina', AUDIO_WORDS);
-    if (data) {
-      const words = shuffleArray(data as Word[]);
-      setAudioWords(words);
-      startRound(words, 1);
-    }
-    setLoading(false);
-  }
-
-  function startRound(words: Word[], currentRound: number) {
-    const idx = (currentRound - 1) % words.length;
-    const t = words[idx];
-    setTarget(t);
-    setAnswer('');
-    setChecked(false);
-    // Auto-play audio on round start
-    setTimeout(() => playAudioForWord(t), 500);
-  }
-
-  async function playAudioForWord(word: Word) {
-    const key = word.palabra_karina.toLowerCase();
-    const asset = AUDIO_MAP[key];
-    if (!asset) return;
     try {
-      await player.replace(asset);
+      setLoading(true);
+      setError(null);
+
+      let query = supabase
+        .from('words')
+        .select('id, palabra_karina, significado_espanol, audio_url');
+
+      if (parsedModuloId !== null) {
+        query = query.eq('modulo_id', parsedModuloId);
+      } else {
+        query = query.limit(40);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        console.error('Error fetching words in Dictado:', fetchError);
+        setError('No se pudo conectar a la base de datos.');
+        setLoading(false);
+        return;
+      }
+
+      if (data && data.length >= 4) {
+        setAllWords(data as Word[]);
+        startRound(data as Word[], 1);
+      } else {
+        setAllWords([]); // Triggers the Escudo Protector
+      }
+    } catch (e) {
+      console.error('Excepción al cargar palabras en Dictado:', e);
+      setError('Ocurrió un error inesperado.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function startRound(wordsPool: Word[], currentRound: number) {
+    if (!wordsPool || wordsPool.length < 4) return;
+
+    // Pick a target word randomly
+    const wordsWithAudio = wordsPool.filter(w => w.audio_url);
+    const selectionPool = wordsWithAudio.length > 0 ? wordsWithAudio : wordsPool;
+    const t = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+
+    setTarget(t);
+    setRoundChecked(false);
+    setRoundCorrect(false);
+    setAssembledLetters([]);
+
+    // Prepare scrambled letters pool
+    const letters = t.palabra_karina.split('').map((char, index) => ({
+      id: `${char}-${index}`,
+      char,
+      isSelected: false,
+    }));
+    setLettersPool(shuffleArray(letters));
+
+    // Play the audio for the new word
+    if (t.audio_url) {
+      setTimeout(() => {
+        playAudio(t.audio_url!);
+      }, 500);
+    }
+  }
+
+  const getAudioUrl = (audioUrl: string) => {
+    if (!audioUrl) return '';
+    if (audioUrl.startsWith('http')) return audioUrl;
+    const { data } = supabase.storage.from('audios').getPublicUrl(audioUrl);
+    return data?.publicUrl || '';
+  };
+
+  const playAudio = async (audioPath: string) => {
+    const url = getAudioUrl(audioPath);
+    if (!url) return;
+    try {
+      await player.replace(url);
       await player.play();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Error playing audio in dictado:', err);
     }
-  }
+  };
 
-  function nextRound() {
-    if (round >= 4) {
+  // Letter interaction
+  const handleSelectLetter = (letter: AnagramLetter) => {
+    if (roundChecked || letter.isSelected) return;
+
+    // Mark as selected in pool
+    setLettersPool(prev => prev.map(l => l.id === letter.id ? { ...l, isSelected: true } : l));
+    // Append to assembled
+    setAssembledLetters(prev => [...prev, letter]);
+  };
+
+  const handleRemoveLetter = (letter: AnagramLetter) => {
+    if (roundChecked) return;
+
+    // Remove from assembled
+    setAssembledLetters(prev => prev.filter(l => l.id !== letter.id));
+    // Mark as unselected in pool
+    setLettersPool(prev => prev.map(l => l.id === letter.id ? { ...l, isSelected: false } : l));
+  };
+
+  const handleClear = () => {
+    if (roundChecked) return;
+    setAssembledLetters([]);
+    setLettersPool(prev => prev.map(l => ({ ...l, isSelected: false })));
+  };
+
+  const handleCheck = () => {
+    if (!target) return;
+    const attempt = assembledLetters.map(l => l.char).join('');
+    const correct = attempt.toLowerCase() === target.palabra_karina.toLowerCase();
+
+    setRoundCorrect(correct);
+    setRoundChecked(true);
+
+    if (correct) {
+      setScore(s => s + 50);
+      setTimeout(() => {
+        handleNextStep();
+      }, 1500);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (round >= 3) {
+      // Trigger Game Completion & database update
       setGameOver(true);
-      return;
+      if (parsedModuloId !== null) {
+        saveProgressToDatabase();
+      }
+    } else {
+      const nextR = round + 1;
+      setRound(nextR);
+      startRound(allWords, nextR);
     }
-    const nextR = round + 1;
-    setRound(nextR);
-    startRound(audioWords, nextR);
+  };
+
+  async function saveProgressToDatabase() {
+    if (!session?.user?.id || parsedModuloId === null) return;
+
+    try {
+      setSavingProgress(true);
+      const userId = session.user.id;
+      const dynamicXp = score + (roundCorrect ? 50 : 0); // dynamically sum points
+
+      // Fetch existing progress
+      const { data: existingProgress, error: fetchError } = await supabase
+        .from('module_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('modulo_id', parsedModuloId)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('Error fetching progress:', fetchError);
+      }
+
+      if (existingProgress) {
+        await supabase
+          .from('module_progress')
+          .update({
+            completed: true,
+            xp: (existingProgress.xp || 0) + dynamicXp,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', existingProgress.id);
+      } else {
+        await supabase.from('module_progress').insert({
+          user_id: userId,
+          modulo_id: parsedModuloId,
+          completed: true,
+          xp: dynamicXp,
+          completed_at: new Date().toISOString(),
+        });
+      }
+    } catch (e) {
+      console.error('Excepción al guardar progreso:', e);
+    } finally {
+      setSavingProgress(false);
+    }
   }
 
-  function checkAnswer() {
-    if (!answer.trim()) return;
-    setChecked(true);
-    const isCorrect = answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase();
-    if (isCorrect) {
-      setScore((s) => s + 25);
+  const handleFinishGame = () => {
+    if (parsedModuloId !== null) {
+      router.replace(`/modulo/${parsedModuloId}`);
+    } else {
+      router.replace('/(tabs)/juegos');
     }
-  }
-
-  function skipRound() {
-    setChecked(true);
-  }
+  };
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#1B5E20" />
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#E65100" />
+        <Text style={styles.loadingText}>Cargando desafío...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // 🛡️ ESCUDO PROTECTOR: Fallback UI
+  if (error || !allWords || allWords.length < 4) {
+    return (
+      <SafeAreaView style={styles.fallbackContainer}>
+        <View style={styles.fallbackCard}>
+          <Text style={styles.fallbackEmoji}>⚠️</Text>
+          <Text style={styles.fallbackTitle}>No hay suficientes palabras</Text>
+          <Text style={styles.fallbackDescription}>
+            Este módulo no cuenta con palabras suficientes para iniciar este minijuego (se requieren al menos 4).
+          </Text>
+          <Pressable onPress={() => router.back()} style={styles.fallbackButton}>
+            <Text style={styles.fallbackButtonText}>Volver al menú</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (gameOver) {
+    const finalXp = score;
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
-        <Text style={{ fontSize: 56 }}>🎉</Text>
-        <Text style={{ fontSize: 24, fontWeight: '900', color: '#1A2E1A', marginTop: 16 }}>¡Juego terminado!</Text>
-        <Text style={{ fontSize: 18, color: '#F59E0B', fontWeight: '800', marginTop: 8 }}>{score} puntos</Text>
-        <Pressable onPress={() => { setGameOver(false); setScore(0); setRound(1); loadWords(); }} style={{ marginTop: 24 }}>
-          <View style={{ backgroundColor: '#1B5E20', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 40 }}>
-            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>Jugar otra vez</Text>
+      <SafeAreaView style={styles.victoryContainer}>
+        <View style={styles.victoryCard}>
+          <Text style={styles.victoryEmoji}>🏆</Text>
+          <Text style={styles.victoryTitle}>¡Felicitaciones!</Text>
+          <Text style={styles.victorySubtitle}>Completaste el flujo de prácticas</Text>
+
+          <View style={styles.rewardsContainer}>
+            <View style={styles.rewardBox}>
+              <Text style={styles.rewardValue}>⭐ {score}</Text>
+              <Text style={styles.rewardLabel}>Puntos</Text>
+            </View>
+            {parsedModuloId !== null && (
+              <View style={styles.rewardBox}>
+                <Text style={[styles.rewardValue, { color: '#2E7D32' }]}>+{finalXp}</Text>
+                <Text style={styles.rewardLabel}>XP Ganado</Text>
+              </View>
+            )}
           </View>
-        </Pressable>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 12 }}>
-          <Text style={{ color: '#666', fontSize: 14 }}>← Volver a juegos</Text>
-        </Pressable>
+
+          <Pressable
+            onPress={handleFinishGame}
+            style={styles.victoryButton}
+            disabled={savingProgress}
+          >
+            {savingProgress ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.victoryButtonText}>Finalizar práctica</Text>
+            )}
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
+  const attemptWord = assembledLetters.map(l => l.char).join('');
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <View style={{ backgroundColor: '#E65100', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: '#FFF', fontSize: 16 }}>←</Text>
-            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Juegos</Text>
-          </View>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Salir</Text>
         </Pressable>
-        <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>✍️ Dictado Kariña</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Palabra {round} de 4</Text>
-          <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700' }}>⭐ {score} pts</Text>
+        <Text style={styles.headerTitle}>✍️ Dictado Kariña</Text>
+        <View style={styles.headerStats}>
+          <View style={styles.statBadge}>
+            <Text style={styles.statLabel}>Palabra {round} de 3</Text>
+          </View>
+          <View style={styles.statBadge}>
+            <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>
+          </View>
         </View>
       </View>
 
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-          <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Escucha el audio y escribe la palabra en Kariña</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
+        <Text style={styles.instructions}>
+          Escucha el audio y ordena las letras para escribir la palabra
+        </Text>
 
-          <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center', marginBottom: 20 }}>
-            <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Significado: {target?.significado_espanol}</Text>
-            <Pressable onPress={() => target && playAudioForWord(target)}>
-              <View style={{ backgroundColor: '#F59E0B', borderRadius: 50, width: 70, height: 70, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 32 }}>▶️</Text>
+        {/* Audio Box */}
+        <View style={styles.audioCard}>
+          <Text style={styles.audioCardSubtitle}>Pista en Español:</Text>
+          <Text style={styles.targetMeaning}>{target?.significado_espanol}</Text>
+
+          <Pressable
+            onPress={() => target?.audio_url && playAudio(target.audio_url)}
+            style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+            disabled={!target?.audio_url}
+          >
+            <Text style={styles.playIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
+          </Pressable>
+          <Text style={styles.playHint}>
+            {target?.audio_url ? 'Toca para escuchar de nuevo' : 'Audio no disponible'}
+          </Text>
+        </View>
+
+        {/* Assembled Letters Area */}
+        <View style={styles.assembledSection}>
+          <View style={styles.assembledContainer}>
+            {assembledLetters.length === 0 ? (
+              <Text style={styles.placeholderText}>Toca las letras de abajo...</Text>
+            ) : (
+              <View style={styles.lettersRow}>
+                {assembledLetters.map((letter) => {
+                  let borderCol = '#E65100';
+                  let bgCol = '#FFFFFF';
+                  let textCol = '#E65100';
+
+                  if (roundChecked) {
+                    borderCol = roundCorrect ? '#2E7D32' : '#C62828';
+                    bgCol = roundCorrect ? '#E8F5E9' : '#FFEBEE';
+                    textCol = roundCorrect ? '#2E7D32' : '#C62828';
+                  }
+
+                  return (
+                    <Pressable
+                      key={letter.id}
+                      onPress={() => handleRemoveLetter(letter)}
+                      disabled={roundChecked}
+                      style={[styles.letterSquare, { borderColor: borderCol, backgroundColor: bgCol }]}
+                    >
+                      <Text style={[styles.letterText, { color: textCol }]}>{letter.char}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-            </Pressable>
-            <Text style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Toca para reproducir</Text>
+            )}
           </View>
 
-          <TextInput
-            value={answer}
-            onChangeText={setAnswer}
-            placeholder="Escribe la palabra en Kariña..."
-            placeholderTextColor="#888"
-            autoCapitalize="none"
-            style={{
-              backgroundColor: '#FFF',
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              paddingVertical: 14,
-              fontSize: 15,
-              borderWidth: 1,
-              borderColor: checked
-                ? answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase()
-                  ? '#2E7D32'
-                  : '#C62828'
-                : '#E2E8F0',
-              color: '#1A2E1A',
-            }}
-          />
+          {assembledLetters.length > 0 && !roundChecked && (
+            <Pressable onPress={handleClear} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>Borrar todo</Text>
+            </Pressable>
+          )}
+        </View>
 
-          {checked && (
-            <View
-              style={{
-                backgroundColor:
-                  answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase()
-                    ? '#E8F5E9'
-                    : '#FFEBEE',
-                borderRadius: 12,
-                padding: 12,
-                marginTop: 12,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: '800',
-                  color:
-                    answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase()
-                      ? '#2E7D32'
-                      : '#C62828',
-                  textAlign: 'center',
-                }}
+        {/* Feedback Alert Row */}
+        {roundChecked && (
+          <View
+            style={[
+              styles.feedbackAlert,
+              { backgroundColor: roundCorrect ? '#E8F5E9' : '#FFEBEE', borderColor: roundCorrect ? '#81C784' : '#E57373' },
+            ]}
+          >
+            <Text style={[styles.feedbackAlertText, { color: roundCorrect ? '#2E7D32' : '#C62828' }]}>
+              {roundCorrect ? '¡Excelente trabajo! ¡Correcto!' : `Incorrecto. Era: ${target?.palabra_karina}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Letters Scrambled Pool */}
+        {!roundChecked && (
+          <View style={styles.poolContainer}>
+            {lettersPool.map((letter) => (
+              <Pressable
+                key={letter.id}
+                onPress={() => handleSelectLetter(letter)}
+                disabled={letter.isSelected}
+                style={[
+                  styles.poolLetterSquare,
+                  letter.isSelected && styles.poolLetterSquareSelected,
+                ]}
               >
-                {answer.trim().toLowerCase() === target?.palabra_karina.toLowerCase()
-                  ? '✅ ¡Correcto!'
-                  : `❌ Respuesta: ${target?.palabra_karina}`}
-              </Text>
-            </View>
-          )}
-
-          {!checked ? (
-            <View style={{ gap: 10, marginTop: 16 }}>
-              <Pressable onPress={checkAnswer} disabled={!answer.trim()}>
-                <View
-                  style={{
-                    backgroundColor: answer.trim() ? '#E65100' : '#E2E8F0',
-                    borderRadius: 14,
-                    paddingVertical: 16,
-                    alignItems: 'center',
-                  }}
+                <Text
+                  style={[
+                    styles.poolLetterText,
+                    letter.isSelected && styles.poolLetterTextSelected,
+                  ]}
                 >
-                  <Text style={{ color: answer.trim() ? '#FFF' : '#888', fontSize: 16, fontWeight: '800' }}>
-                    Verificar
-                  </Text>
-                </View>
+                  {letter.char}
+                </Text>
               </Pressable>
-              <Pressable onPress={skipRound}>
-                <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-                  <Text style={{ color: '#888', fontSize: 13 }}>Saltar palabra →</Text>
-                </View>
-              </Pressable>
-            </View>
+            ))}
+          </View>
+        )}
+
+        {/* Action Button */}
+        <View style={styles.actionContainer}>
+          {!roundChecked ? (
+            <Pressable
+              onPress={handleCheck}
+              disabled={assembledLetters.length === 0}
+              style={[
+                styles.actionButton,
+                assembledLetters.length === 0 && styles.actionButtonDisabled,
+              ]}
+            >
+              <Text style={styles.actionButtonText}>Verificar respuesta</Text>
+            </Pressable>
           ) : (
-            <View style={{ gap: 10, marginTop: 16 }}>
-              <Pressable onPress={nextRound}>
-                <View style={{ backgroundColor: '#1B5E20', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}>
-                  <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>
-                    {round >= 4 ? 'Ver resultado' : 'Siguiente palabra'}
-                  </Text>
-                </View>
+            !roundCorrect && (
+              <Pressable onPress={handleNextStep} style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>Continuar</Text>
               </Pressable>
-            </View>
+            )
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
+  const newArr = [...arr];
+  for (let i = newArr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
   }
-  return a;
+  return newArr;
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#E65100',
+  },
+  fallbackContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  fallbackCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  fallbackEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  fallbackTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#E65100',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  fallbackDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  fallbackButton: {
+    backgroundColor: '#E65100',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+  },
+  fallbackButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  victoryContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  victoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 35,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  victoryEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  victoryTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A2E1A',
+    textAlign: 'center',
+  },
+  victorySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  rewardsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginVertical: 24,
+    width: '100%',
+    justifyContent: 'center',
+  },
+  rewardBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  rewardValue: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#F59E0B',
+  },
+  rewardLabel: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  victoryButton: {
+    backgroundColor: '#E65100',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    width: '100%',
+    alignItems: 'center',
+  },
+  victoryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  header: {
+    backgroundColor: '#E65100',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  headerStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  statBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scoreHighlight: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  scrollContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  instructions: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  audioCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 24,
+  },
+  audioCardSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  targetMeaning: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A2E1A',
+    marginTop: 6,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  playButton: {
+    backgroundColor: '#E65100',
+    borderRadius: 45,
+    width: 90,
+    height: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E65100',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  playButtonPressed: {
+    transform: [{ scale: 0.95 }],
+    backgroundColor: '#BF360C',
+  },
+  playIcon: {
+    fontSize: 36,
+    marginLeft: 4,
+  },
+  playHint: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 14,
+    fontWeight: '500',
+  },
+  assembledSection: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  assembledContainer: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#EFECE6',
+    borderRadius: 16,
+    minHeight: 80,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  placeholderText: {
+    color: '#AAA',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  lettersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  letterSquare: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  letterText: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  clearButton: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  clearButtonText: {
+    color: '#E65100',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  feedbackAlert: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  feedbackAlertText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  poolContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 24,
+  },
+  poolLetterSquare: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#EFECE6',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  poolLetterSquareSelected: {
+    backgroundColor: '#F0EDE8',
+    borderColor: '#F0EDE8',
+    opacity: 0.4,
+  },
+  poolLetterText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1A2E1A',
+  },
+  poolLetterTextSelected: {
+    color: '#AAA',
+  },
+  actionContainer: {
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 20,
+  },
+  actionButton: {
+    backgroundColor: '#E65100',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#EFECE6',
+  },
+  actionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+});
