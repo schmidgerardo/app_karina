@@ -50,7 +50,7 @@ export default function ModuloDetailScreen() {
     const { data: wordsData } = await supabase
       .from('words')
       .select('id, palabra_karina, significado_espanol')
-      .eq('module_id', moduleId)
+      .eq('modulo_id', moduleId)
       .order('palabra_karina');
 
     if (wordsData) {

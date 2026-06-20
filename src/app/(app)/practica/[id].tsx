@@ -52,7 +52,7 @@ export default function PracticaScreen() {
     const { data: mod } = await supabase.from('modules').select('id, titulo').eq('id', moduleId).single();
     if (mod) setModule(mod as Module);
 
-    const { data: wds } = await supabase.from('words').select('id, palabra_karina, significado_espanol').eq('module_id', moduleId);
+    const { data: wds } = await supabase.from('words').select('id, palabra_karina, significado_espanol').eq('modulo_id', moduleId);
     if (wds) setWords(wds as Word[]);
 
     setStep(1);
@@ -83,7 +83,7 @@ export default function PracticaScreen() {
 
     const payload = {
       user_id: session.user.id,
-      module_id: module.id,
+      modulo_id: module.id,
       exercise_1_done: true,
       exercise_2_done: true,
       exercise_3_done: true,
@@ -93,7 +93,7 @@ export default function PracticaScreen() {
       completed_at: new Date().toISOString(),
     };
 
-    await supabase.from('module_progress').upsert(payload, { onConflict: 'user_id,module_id' });
+    await supabase.from('module_progress').upsert(payload, { onConflict: 'user_id,modulo_id' });
     setSaved(true);
   }
 
