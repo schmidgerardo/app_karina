@@ -65,6 +65,9 @@ export default function JuegoUnirScreen() {
       .select('id, palabra_karina, significado_espanol') 
       .limit(50);
 
+      console.log("¿Hay error en Supabase?:", error);
+      console.log("¿Qué datos llegaron de la tabla words?:", data);
+
     if (error) {
       console.error("Error cargando palabras:", error.message);
       setLoading(false);
