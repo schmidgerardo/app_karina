@@ -21,7 +21,6 @@ interface WordBox {
   height: number;
 }
 
-// Declaramos el componente animado fuera para evitar re-renderizados costosos
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 export default function JuegoUnirScreen() {
@@ -42,7 +41,7 @@ export default function JuegoUnirScreen() {
   const [karinaBoxes, setKarinaBoxes] = useState<Record<string, WordBox>>({});
   const [espanolBoxes, setEspanolBoxes] = useState<Record<string, WordBox>>({});
   
-  // Shared values para Reanimated (las líneas del arrastre)
+  // Shared values para las líneas del arrastre
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const endX = useSharedValue(0);
@@ -61,7 +60,6 @@ export default function JuegoUnirScreen() {
 
   async function loadWords() {
     setLoading(true);
-    // Jalamos los datos usando tus columnas reales confirmadas
     const { data, error } = await supabase
       .from('words')
       .select('id, palabra_karina, significado_espanol') 
@@ -121,7 +119,7 @@ export default function JuegoUnirScreen() {
     const pair = currentWords.find(w => w.palabra_karina === karinaWord);
     
     if (!pair) {
-      showFeedback('❌ Error', 'error');
+      showFeedback('❌ Error interno', 'error');
       resetLine();
       return;
     }
@@ -144,7 +142,7 @@ export default function JuegoUnirScreen() {
       }
     } else {
       const correctMatch = currentWords.find(w => w.palabra_karina === karinaWord);
-      showFeedback(`❌ "${karinaWord}" significa "${correctMatch?.significado_espanol}", no "${espanolWord}"`, 'error');
+      showFeedback(`❌ "${karinaWord}" significa "${correctMatch?.significado_espanol}"`, 'error');
       lineColor.value = '#F44336';
     }
     
@@ -168,7 +166,7 @@ export default function JuegoUnirScreen() {
       const { absoluteX, absoluteY } = e;
       
       for (const [word, box] of Object.entries(karinaBoxes)) {
-        if (!matchedKarina.has(word) &&
+        if (!matchedKarina.has(word) && box &&
             absoluteX >= box.x && absoluteX <= box.x + box.width &&
             absoluteY >= box.y && absoluteY <= box.y + box.height) {
           runOnJS(setActiveWord)(word);
@@ -193,7 +191,7 @@ export default function JuegoUnirScreen() {
         let found = false;
         
         for (const [word, box] of Object.entries(espanolBoxes)) {
-          if (!matchedEspanol.has(word) &&
+          if (!matchedEspanol.has(word) && box &&
               absoluteX >= box.x && absoluteX <= box.x + box.width &&
               absoluteY >= box.y && absoluteY <= box.y + box.height) {
             found = true;
@@ -274,15 +272,9 @@ export default function JuegoUnirScreen() {
         {feedback && (
           <View style={{
             position: 'absolute',
-            top: '40%',
-            left: '10%',
-            right: '10%',
+            top: '40%', left: '10%', right: '10%',
             backgroundColor: feedback.type === 'success' ? '#4CAF50' : '#F44336',
-            padding: 15,
-            borderRadius: 10,
-            zIndex: 1000,
-            alignItems: 'center',
-            elevation: 5,
+            padding: 15, borderRadius: 10, zIndex: 1000, alignItems: 'center', elevation: 5,
           }}>
             <Text style={{ color: '#FFF', fontSize: 16, fontWeight: 'bold', textAlign: 'center' }}>
               {feedback.message}
@@ -290,7 +282,7 @@ export default function JuegoUnirScreen() {
           </View>
         )}
 
-        {/* Game Area */}
+        {/* Area del Juego */}
         <ScrollView contentContainerStyle={{ padding: 20 }} scrollEnabled={false}>
           <Text style={{ textAlign: 'center', color: '#666', marginBottom: 20 }}>
             Arrastra desde la palabra Kariña hasta su traducción en español
@@ -299,13 +291,8 @@ export default function JuegoUnirScreen() {
           <GestureDetector gesture={gesture}>
             <View style={{ flexDirection: 'row', gap: 20, position: 'relative' }}>
               
-              {/* Capa SVG para dibujar la línea */}
-              <View style={{ 
-                position: 'absolute', 
-                top: 0, left: 0, right: 0, bottom: 0, 
-                pointerEvents: 'none',
-                zIndex: 10 
-              }}>
+              {/* Capa SVG para las líneas animadas */}
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none', zIndex: 10 }}>
                 <Svg style={{ width: '100%', height: '100%' }}>
                   <AnimatedLine animatedProps={animatedLineProps} />
                 </Svg>
@@ -322,12 +309,14 @@ export default function JuegoUnirScreen() {
                     <View
                       key={word}
                       onLayout={(e) => {
-                        // onLayout captura de forma nativa la posición exacta de los contenedores
-                        e.target.measure((x, y, width, height, pageX, pageY) => {
-                          if (pageX && pageY) {
-                            setKarinaBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
-                          }
-                        });
+                        // Agregamos un leve delay asíncrono para asegurar que measure capture las coordenadas reales en Web
+                        setTimeout(() => {
+                          e.target.measure((x, y, width, height, pageX, pageY) => {
+                            if (width && height && pageX && pageY) {
+                              setKarinaBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
+                            }
+                          });
+                        }, 100);
                       }}
                       style={{
                         backgroundColor: isMatched ? '#C8E6C9' : activeWord === word ? '#A5D6A7' : '#FFF',
@@ -354,11 +343,13 @@ export default function JuegoUnirScreen() {
                     <View
                       key={word}
                       onLayout={(e) => {
-                        e.target.measure((x, y, width, height, pageX, pageY) => {
-                          if (pageX && pageY) {
-                            setEspanolBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
-                          }
-                        });
+                        setTimeout(() => {
+                          e.target.measure((x, y, width, height, pageX, pageY) => {
+                            if (width && height && pageX && pageY) {
+                              setEspanolBoxes(prev => ({ ...prev, [word]: { word, x: pageX, y: pageY, width, height } }));
+                            }
+                          });
+                        }, 100);
                       }}
                       style={{
                         backgroundColor: isMatched ? '#C8E6C9' : '#FFF',
@@ -376,7 +367,7 @@ export default function JuegoUnirScreen() {
             </View>
           </GestureDetector>
 
-          {/* Barra de progreso de la ronda */}
+          {/* Barra de Progreso */}
           <View style={{ marginTop: 30, alignItems: 'center' }}>
             <Text style={{ color: '#666' }}>
               Emparejadas: {matchedKarina.size} de {currentWords.length}
@@ -391,7 +382,6 @@ export default function JuegoUnirScreen() {
   );
 }
 
-// Función auxiliar robusta para mezclar los arreglos sin mutar el estado directamente
 function shuffleArray<T>(arr: T[]): T[] {
   const newArr = [...arr];
   for (let i = newArr.length - 1; i > 0; i--) {
