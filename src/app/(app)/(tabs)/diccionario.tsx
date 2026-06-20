@@ -145,36 +145,35 @@ export default function DiccionarioScreen() {
           const moduleColor = item.modules?.[0]?.color || '#1B5E20';
 
           return (
-            <Animated.View
-              entering={FadeInDown.delay(index * 100).springify()}
-              className="bg-white dark:bg-slate-800 rounded-3xl p-5 mb-4 flex-row items-center shadow-md shadow-slate-200 dark:shadow-none border border-slate-50 dark:border-slate-700"
-            >
-              <View
-                className="w-1.5 h-12 rounded-full mr-4"
-                style={{ backgroundColor: moduleColor }}
-              />
-              <View className="flex-1">
-                <Text className="text-xl font-extrabold text-slate-900 dark:text-slate-50">
-                  {item.palabra_karina}
-                </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
-                  {item.significado_espanol}
-                </Text>
-                {item.modules?.[0] && (
-                  <Text
-                    className="text-[10px] font-bold uppercase tracking-wider mt-1.5"
-                    style={{ color: moduleColor }}
-                  >
-                    {item.modules[0].titulo}
+            <Animated.View entering={FadeInDown.delay(index * 100).springify()}>
+              <View className="bg-white dark:bg-slate-800 rounded-3xl p-5 mb-4 flex-row items-center shadow-md shadow-slate-200 dark:shadow-none border border-slate-50 dark:border-slate-700">
+                <View
+                  className="w-1.5 h-12 rounded-full mr-4"
+                  style={{ backgroundColor: moduleColor }}
+                />
+                <View className="flex-1">
+                  <Text className="text-xl font-extrabold text-slate-900 dark:text-slate-50">
+                    {item.palabra_karina}
                   </Text>
-                )}
+                  <Text className="text-slate-500 dark:text-slate-400 text-sm mt-0.5">
+                    {item.significado_espanol}
+                  </Text>
+                  {item.modules?.[0] && (
+                    <Text
+                      className="text-[10px] font-bold uppercase tracking-wider mt-1.5"
+                      style={{ color: moduleColor }}
+                    >
+                      {item.modules[0].titulo}
+                    </Text>
+                  )}
+                </View>
+                <DictionaryAudioButton
+                  hasAudio={hasAudio}
+                  isPlaying={isPlaying}
+                  onPress={() => handlePlayAudio(item)}
+                  color={moduleColor}
+                />
               </View>
-              <DictionaryAudioButton
-                hasAudio={hasAudio}
-                isPlaying={isPlaying}
-                onPress={() => handlePlayAudio(item)}
-                color={moduleColor}
-              />
             </Animated.View>
           );
         }}
