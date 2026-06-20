@@ -18,7 +18,7 @@ interface Module {
 }
 
 interface ProgressItem {
-  module_id: number;
+  modulo_id: number;
   completed: boolean;
 }
 
@@ -43,7 +43,7 @@ export default function ModulosScreen() {
 
     if (session?.user?.id) {
       const [{ data: progData }, { data: profile }] = await Promise.all([
-        supabase.from('module_progress').select('module_id, completed').eq('user_id', session.user.id),
+        supabase.from('module_progress').select('modulo_id, completed').eq('user_id', session.user.id),
         supabase.from('profiles').select('idioma').eq('id', session.user.id).single(),
       ]);
       if (progData) setProgress(progData as ProgressItem[]);
@@ -101,7 +101,7 @@ export default function ModulosScreen() {
           </Text>
         }
         renderItem={({ item }) => {
-          const modProgress = progress.find((p) => p.module_id === item.id);
+          const modProgress = progress.find((p) => p.modulo_id === item.id);
           return <ModuloItem item={item} isCompleted={modProgress?.completed || false} idioma={idioma} />;
         }}
       />

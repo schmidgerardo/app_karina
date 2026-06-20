@@ -12,7 +12,7 @@ const HEADER_IMAGE =
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 
 interface ProgressItem {
-  module_id: number;
+  modulo_id: number;
   completed_at?: string | null;
 }
 
@@ -140,7 +140,7 @@ export default function HomeScreen() {
 
       const { data: progData } = await supabase
         .from('module_progress')
-        .select('module_id, completed_at')
+        .select('modulo_id, completed_at')
         .eq('user_id', session.user.id);
 
       if (progData) {

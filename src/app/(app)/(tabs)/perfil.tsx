@@ -47,7 +47,7 @@ export default function PerfilScreen() {
 
       const { data: progData } = await supabase
         .from('module_progress')
-        .select('xp, completed')
+        .select('xp, completed, modulo_id')
         .eq('user_id', session.user.id);
 
       if (progData) {
