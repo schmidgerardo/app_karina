@@ -1,128 +1,204 @@
-import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, StyleSheet } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
+  audio_url: string | null;
 }
-
-/* eslint-disable no-undef */
-const AUDIO_MAP: Record<string, any> = {
-  aau: require('../../../../assets/sounds/aau.mp3'),
-  mojko: require('../../../../assets/sounds/mojko.mp3'),
-  nana: require('../../../../assets/sounds/nana.mp3'),
-  nakon: require('../../../../assets/sounds/nakon.mp3'),
-};
-/* eslint-enable no-undef */
-
-const AUDIO_WORDS = ['aau', 'mojko', 'nana', 'nakon'];
 
 export default function JuegoOpcionesScreen() {
   const router = useRouter();
-  const [audioWords, setAudioWords] = useState<Word[]>([]);
+  const { modulo_id } = useLocalSearchParams();
+
+  // Parse and normalize modulo_id
+  const parsedModuloId = modulo_id
+    ? (/^\d+$/.test(String(modulo_id)) ? parseInt(String(modulo_id), 10) : String(modulo_id))
+    : null;
+
+  const [allWords, setAllWords] = useState<Word[]>([]);
   const [target, setTarget] = useState<Word | null>(null);
   const [options, setOptions] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
-  const [round, setRound] = useState(1);
+  const [successCount, setSuccessCount] = useState(0);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+
   const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+  const isPlaying = status.playing;
 
   useFocusEffect(
     useCallback(() => {
       loadWords();
-    }, [])
+    }, [modulo_id])
   );
 
   async function loadWords() {
-    setLoading(true);
-    const { data } = await supabase
-      .from('words')
-      .select('id, palabra_karina, significado_espanol')
-      .in('palabra_karina', AUDIO_WORDS);
-    if (data) {
-      const words = shuffleArray(data as Word[]);
-      setAudioWords(words);
-      startRound(words, 1);
+    try {
+      setLoading(true);
+      setError(null);
+
+      let query = supabase
+        .from('words')
+        .select('id, palabra_karina, significado_espanol, audio_url');
+
+      if (parsedModuloId !== null) {
+        query = query.eq('modulo_id', parsedModuloId);
+      } else {
+        query = query.limit(40);
+      }
+
+      const { data, error: fetchError } = await query;
+
+      if (fetchError) {
+        console.error('Error fetching words in Opciones:', fetchError);
+        setError('No se pudo conectar a la base de datos.');
+        setLoading(false);
+        return;
+      }
+
+      if (data && data.length >= 4) {
+        setAllWords(data as Word[]);
+        startRound(data as Word[], 0);
+      } else {
+        setAllWords([]); // Triggers the Escudo Protector
+      }
+    } catch (e) {
+      console.error('Excepción al cargar palabras en Opciones:', e);
+      setError('Ocurrió un error inesperado.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
-  function startRound(words: Word[], currentRound: number) {
-    const idx = (currentRound - 1) % words.length;
-    const t = words[idx];
-    // Obtener 2 distractores diferentes al target
-    const distractors = shuffleArray(words.filter((w) => w.id !== t.id)).slice(0, 2);
+  function startRound(wordsPool: Word[], currentSuccesses: number) {
+    if (!wordsPool || wordsPool.length < 4) return;
+
+    // Pick a random target word that has an audio URL if possible
+    const wordsWithAudio = wordsPool.filter(w => w.audio_url);
+    const selectionPool = wordsWithAudio.length > 0 ? wordsWithAudio : wordsPool;
+    const t = selectionPool[Math.floor(Math.random() * selectionPool.length)];
+
+    // Get 2 distractors from the pool (excluding the target)
+    const distractors = shuffleArray(wordsPool.filter(w => w.id !== t.id)).slice(0, 2);
     const opts = shuffleArray([t, ...distractors]);
+
     setTarget(t);
     setOptions(opts);
-    setSelected(null);
+    setSelectedId(null);
     setChecked(false);
-    setTimeout(() => playAudioForWord(t), 500);
+
+    // Auto-play the audio
+    if (t.audio_url) {
+      setTimeout(() => {
+        playAudio(t.audio_url!);
+      }, 500);
+    }
   }
 
-  async function playAudioForWord(word: Word) {
-    const key = word.palabra_karina.toLowerCase();
-    const asset = AUDIO_MAP[key];
-    if (!asset) return;
+  const getAudioUrl = (audioUrl: string) => {
+    if (!audioUrl) return '';
+    if (audioUrl.startsWith('http')) return audioUrl;
+    const { data } = supabase.storage.from('audios').getPublicUrl(audioUrl);
+    return data?.publicUrl || '';
+  };
+
+  const playAudio = async (audioPath: string) => {
+    const url = getAudioUrl(audioPath);
+    if (!url) return;
     try {
-      await player.replace(asset);
+      await player.replace(url);
       await player.play();
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error('Error playing audio in opciones:', err);
     }
-  }
+  };
 
-  function nextRound() {
-    if (round >= 4) {
-      setGameOver(true);
-      return;
-    }
-    const nextR = round + 1;
-    setRound(nextR);
-    startRound(audioWords, nextR);
-  }
-
-  function handleSelect(opt: Word) {
+  const handleSelect = (opt: Word) => {
     if (checked) return;
-    setSelected(opt.id);
-    const isCorrect = opt.id === target?.id;
+    setSelectedId(opt.id);
     setChecked(true);
+
+    const isCorrect = opt.id === target?.id;
     if (isCorrect) {
-      setScore((s) => s + 25);
-      setTimeout(nextRound, 1200);
+      const nextSuccesses = successCount + 1;
+      setSuccessCount(nextSuccesses);
+      setScore(s => s + 25);
+
+      setTimeout(() => {
+        if (nextSuccesses >= 3) {
+          setGameOver(true);
+        } else {
+          startRound(allWords, nextSuccesses);
+        }
+      }, 1200);
+    } else {
+      // If wrong, wait 2 seconds and present another question to try to reach 3 successes
+      setTimeout(() => {
+        startRound(allWords, successCount);
+      }, 2000);
     }
-  }
+  };
+
+  const handleGoToDictation = () => {
+    if (parsedModuloId !== null) {
+      router.push(`/juego/dictado?modulo_id=${parsedModuloId}`);
+    } else {
+      router.push('/juego/dictado');
+    }
+  };
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator size="large" color="#1B5E20" />
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#1565C0" />
+        <Text style={styles.loadingText}>Cargando desafío...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  // 🛡️ ESCUDO PROTECTOR: Fallback UI
+  if (error || !allWords || allWords.length < 4) {
+    return (
+      <SafeAreaView style={styles.fallbackContainer}>
+        <View style={styles.fallbackCard}>
+          <Text style={styles.fallbackEmoji}>⚠️</Text>
+          <Text style={styles.fallbackTitle}>No hay suficientes palabras</Text>
+          <Text style={styles.fallbackDescription}>
+            Este módulo no cuenta con palabras suficientes para iniciar este minijuego (se requieren al menos 4).
+          </Text>
+          <Pressable onPress={() => router.back()} style={styles.fallbackButton}>
+            <Text style={styles.fallbackButtonText}>Volver al menú</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (gameOver) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center', padding: 30 }}>
-        <Text style={{ fontSize: 56 }}>🎉</Text>
-        <Text style={{ fontSize: 24, fontWeight: '900', color: '#1A2E1A', marginTop: 16 }}>¡Juego terminado!</Text>
-        <Text style={{ fontSize: 18, color: '#F59E0B', fontWeight: '800', marginTop: 8 }}>{score} puntos</Text>
-        <Pressable onPress={() => { setGameOver(false); setScore(0); setRound(1); loadWords(); }} style={{ marginTop: 24 }}>
-          <View style={{ backgroundColor: '#1B5E20', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 40 }}>
-            <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '800' }}>Jugar otra vez</Text>
+      <SafeAreaView style={styles.victoryContainer}>
+        <View style={styles.victoryCard}>
+          <Text style={styles.victoryEmoji}>🎉</Text>
+          <Text style={styles.victoryTitle}>¡Buen trabajo!</Text>
+          <Text style={styles.victorySubtitle}>Acertaste 3 palabras y ganaste</Text>
+          <View style={styles.scoreBadge}>
+            <Text style={styles.scoreText}>⭐ {score} pts</Text>
           </View>
-        </Pressable>
-        <Pressable onPress={() => router.back()} style={{ marginTop: 12 }}>
-          <Text style={{ color: '#666', fontSize: 14 }}>← Volver a juegos</Text>
-        </Pressable>
+          <Pressable onPress={handleGoToDictation} style={styles.victoryButton}>
+            <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     );
   }
@@ -130,79 +206,87 @@ export default function JuegoOpcionesScreen() {
   const labels = ['A', 'B', 'C'];
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <View style={{ backgroundColor: '#1565C0', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
-        <Pressable onPress={() => router.back()} style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: '#FFF', fontSize: 16 }}>←</Text>
-            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '600' }}>Juegos</Text>
-          </View>
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Salir</Text>
         </Pressable>
-        <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>🎧 Escucha y elige</Text>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-          <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>Pregunta {round} de 4</Text>
-          <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700' }}>⭐ {score} pts</Text>
+        <Text style={styles.headerTitle}>🎧 Escucha y elige</Text>
+        <View style={styles.headerStats}>
+          <View style={styles.statBadge}>
+            <Text style={styles.statLabel}>Aciertos: {successCount} de 3</Text>
+          </View>
+          <View style={styles.statBadge}>
+            <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>
+          </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-        <Text style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>Escucha el audio y selecciona la palabra Kariña correcta</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.instructions}>
+          Escucha el audio y selecciona la traducción Kariña correcta
+        </Text>
 
-        <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center', marginBottom: 20 }}>
-          <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Significado: {target?.significado_espanol}</Text>
-          <Pressable onPress={() => target && playAudioForWord(target)}>
-            <View style={{ backgroundColor: '#1565C0', borderRadius: 50, width: 70, height: 70, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 32 }}>▶️</Text>
-            </View>
+        {/* Audio Player Card */}
+        <View style={styles.audioCard}>
+          <Text style={styles.audioCardSubtitle}>Significado en Español:</Text>
+          <Text style={styles.targetMeaning}>{target?.significado_espanol}</Text>
+
+          <Pressable
+            onPress={() => target?.audio_url && playAudio(target.audio_url)}
+            style={({ pressed }) => [styles.playButton, pressed && styles.playButtonPressed]}
+            disabled={!target?.audio_url}
+          >
+            <Text style={styles.playIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
           </Pressable>
-          <Text style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Toca para reproducir</Text>
+          <Text style={styles.playHint}>
+            {target?.audio_url ? 'Toca para reproducir pronunciación' : 'Audio no disponible'}
+          </Text>
         </View>
 
-        <View style={{ gap: 10 }}>
+        {/* Options */}
+        <View style={styles.optionsContainer}>
           {options.map((opt, idx) => {
-            const isSelected = selected === opt.id;
+            const isSelected = selectedId === opt.id;
             const isCorrect = opt.id === target?.id;
-            let bg = '#FFF';
-            let border = '#F0EDE8';
-            if (checked && isCorrect) { bg = '#E8F5E9'; border = '#2E7D32'; }
-            else if (checked && isSelected && !isCorrect) { bg = '#FFEBEE'; border = '#C62828'; }
-            else if (isSelected) { bg = '#E3F2FD'; border = '#1565C0'; }
+
+            let cardStyle = styles.optionCard;
+            let labelBadgeStyle = styles.labelBadge;
+            let labelTextStyle = styles.labelText;
+
+            if (checked) {
+              if (isCorrect) {
+                cardStyle = [styles.optionCard, styles.correctOptionCard];
+                labelBadgeStyle = [styles.labelBadge, styles.correctLabelBadge];
+                labelTextStyle = styles.correctLabelText;
+              } else if (isSelected) {
+                cardStyle = [styles.optionCard, styles.incorrectOptionCard];
+                labelBadgeStyle = [styles.labelBadge, styles.incorrectLabelBadge];
+                labelTextStyle = styles.incorrectLabelText;
+              }
+            } else if (isSelected) {
+              cardStyle = [styles.optionCard, styles.selectedOptionCard];
+              labelBadgeStyle = [styles.labelBadge, styles.selectedLabelBadge];
+              labelTextStyle = styles.selectedLabelText;
+            }
 
             return (
-              <Pressable key={opt.id} onPress={() => handleSelect(opt)} disabled={checked}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 12,
-                    backgroundColor: bg,
-                    borderRadius: 14,
-                    padding: 14,
-                    borderWidth: 2,
-                    borderColor: border,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      backgroundColor: checked && isCorrect ? '#2E7D32' : isSelected ? '#1565C0' : '#F0EDE8',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <Text style={{ fontSize: 14, fontWeight: '800', color: checked && isCorrect ? '#FFF' : isSelected ? '#FFF' : '#1A2E1A' }}>
-                      {labels[idx]}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#1A2E1A' }}>{opt.palabra_karina}</Text>
-                    <Text style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{opt.significado_espanol}</Text>
-                  </View>
-                  {checked && isCorrect && <Text style={{ fontSize: 20 }}>✅</Text>}
-                  {checked && isSelected && !isCorrect && <Text style={{ fontSize: 20 }}>❌</Text>}
+              <Pressable
+                key={opt.id}
+                onPress={() => handleSelect(opt)}
+                disabled={checked}
+                style={cardStyle}
+              >
+                <View style={labelBadgeStyle}>
+                  <Text style={labelTextStyle}>{labels[idx]}</Text>
                 </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionWord}>{opt.palabra_karina}</Text>
+                  <Text style={styles.optionMeaning}>{opt.significado_espanol}</Text>
+                </View>
+                {checked && isCorrect && <Text style={styles.checkIcon}>✅</Text>}
+                {checked && isSelected && !isCorrect && <Text style={styles.checkIcon}>❌</Text>}
               </Pressable>
             );
           })}
@@ -213,10 +297,340 @@ export default function JuegoOpcionesScreen() {
 }
 
 function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
+  const newArr = [...arr];
+  for (let i = newArr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
   }
-  return a;
+  return newArr;
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1565C0',
+  },
+  fallbackContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  fallbackCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  fallbackEmoji: {
+    fontSize: 48,
+    marginBottom: 16,
+  },
+  fallbackTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#1565C0',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  fallbackDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  fallbackButton: {
+    backgroundColor: '#1565C0',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+  },
+  fallbackButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  victoryContainer: {
+    flex: 1,
+    backgroundColor: '#F9F6F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  victoryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 35,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  victoryEmoji: {
+    fontSize: 56,
+    marginBottom: 16,
+  },
+  victoryTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A2E1A',
+    textAlign: 'center',
+  },
+  victorySubtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  scoreBadge: {
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFE082',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    marginTop: 14,
+    marginBottom: 24,
+  },
+  scoreText: {
+    color: '#F59E0B',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  victoryButton: {
+    backgroundColor: '#1565C0',
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    width: '100%',
+    alignItems: 'center',
+  },
+  victoryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  header: {
+    backgroundColor: '#1565C0',
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 12,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  headerStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  statBadge: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  statLabel: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  scoreHighlight: {
+    color: '#FFD700',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  scrollContent: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  instructions: {
+    textAlign: 'center',
+    color: '#666',
+    fontSize: 14,
+    marginBottom: 20,
+  },
+  audioCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 24,
+  },
+  audioCardSubtitle: {
+    fontSize: 12,
+    color: '#888',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  targetMeaning: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#1A2E1A',
+    marginTop: 6,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  playButton: {
+    backgroundColor: '#1565C0',
+    borderRadius: 45,
+    width: 90,
+    height: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1565C0',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  playButtonPressed: {
+    transform: [{ scale: 0.95 }],
+    backgroundColor: '#0D47A1',
+  },
+  playIcon: {
+    fontSize: 36,
+    marginLeft: 4, // centering visual fix for play arrow
+  },
+  playHint: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 14,
+    fontWeight: '500',
+  },
+  optionsContainer: {
+    width: '100%',
+    maxWidth: 360,
+    gap: 12,
+  },
+  optionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#EFECE6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  selectedOptionCard: {
+    borderColor: '#1565C0',
+    backgroundColor: '#E3F2FD',
+  },
+  correctOptionCard: {
+    borderColor: '#2E7D32',
+    backgroundColor: '#E8F5E9',
+  },
+  incorrectOptionCard: {
+    borderColor: '#C62828',
+    backgroundColor: '#FFEBEE',
+  },
+  labelBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F0EDE8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  selectedLabelBadge: {
+    backgroundColor: '#1565C0',
+  },
+  correctLabelBadge: {
+    backgroundColor: '#2E7D32',
+  },
+  incorrectLabelBadge: {
+    backgroundColor: '#C62828',
+  },
+  labelText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1A2E1A',
+  },
+  selectedLabelText: {
+    color: '#FFFFFF',
+  },
+  correctLabelText: {
+    color: '#FFFFFF',
+  },
+  incorrectLabelText: {
+    color: '#FFFFFF',
+  },
+  optionContent: {
+    flex: 1,
+  },
+  optionWord: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1A2E1A',
+  },
+  optionMeaning: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  checkIcon: {
+    fontSize: 22,
+  },
+});
