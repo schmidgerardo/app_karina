@@ -86,8 +86,15 @@ export default function ModuloDetailScreen() {
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{module.descripcion}</Text>
           </View>
         </View>
-        {/* Botón practicar */}
-        <Pressable onPress={() => router.push(`/(app)/practica/${module.id}`)} style={{ marginTop: 14 }}>
+        
+        {/* 🔥 REEMPLAZO: Botón practicar unificado con el nuevo flujo */}
+        <Pressable 
+          onPress={() => router.push({
+            pathname: '/(app)/juego/unir',
+            params: { modulo_id: module.id }
+          })} 
+          style={{ marginTop: 14 }}
+        >
           <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}>
             <Text style={{ fontSize: 20 }}>🎯</Text>
             <View style={{ flex: 1 }}>
@@ -127,8 +134,8 @@ export default function ModuloDetailScreen() {
               borderColor: '#F0EDE8',
             }}
           >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${module.color}18`, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 14, fontWeight: '800', color: module.color }}>{index + 1}</Text>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${module.color || '#1B5E20'}18`, alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 14, fontWeight: '800', color: module.color || '#1B5E20' }}>{index + 1}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{item.palabra_karina}</Text>
