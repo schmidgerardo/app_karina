@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { Stack, usePathname, useRouter } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { PortalHost } from '@rn-primitives/portal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
@@ -12,22 +12,23 @@ import '../global.css';
 function AuthGuard() {
   const { session, isLoading } = useSession();
   const router = useRouter();
-  const pathname = usePathname();
+  const segments = useSegments();
 
   useEffect(() => {
     if (isLoading) return;
 
-    const isAuthRoute = pathname === '/sign-in' || pathname === '/sign-up';
+    const inAppGroup = segments[0] === '(app)';
+    const inAuthGroup = segments[0] === '(auth)';
 
-    if (!session && !isAuthRoute) {
-      // Unauthenticated user on a protected route → redirect to sign-in
+    if (!session && !inAuthGroup) {
+      // Si no está logueado y está en la raíz o en una ruta protegida → mandar a login
       router.replace('/(auth)/sign-in');
-    } else if (session && isAuthRoute) {
-      // Authenticated user on an auth route → redirect to home
+    } else if (session && !inAppGroup) {
+      // Si ya está logueado y está afuera del grupo autenticado → mandar al home interno
       router.replace('/(app)/(tabs)');
     }
     // Otherwise, stay on current route
-  }, [session, isLoading, pathname, router]);
+  }, [session, isLoading, segments, router]);
 
   if (isLoading) {
     return (
