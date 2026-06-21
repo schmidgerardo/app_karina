@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +19,7 @@ interface ProgressItem {
 const SABIAS_QUE = [
   {
     titulo: '¿Sabías que?',
-    texto: 'Los Kariña habitan el territorio del Estado Bolívar, Venezuela, desde tiempos ancestrales. Su nombre significa "el pueblo".',
+    texto: 'Los Kariña habitan el territorio del Estado Bolívar, Venezuela, desde tiempos ancestrales. Su name significa "el pueblo".',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_dc727547-b06b-4d44-a03f-a4cb4506fa18.jpg',
   },
   {
@@ -49,7 +49,7 @@ function SabiasQueRotativo() {
   useEffect(() => {
     const interval = setInterval(() => {
       setIdx((prev) => (prev + 1) % SABIAS_QUE.length);
-    }, 10000);
+    });
     return () => clearInterval(interval);
   }, []);
 
@@ -66,7 +66,6 @@ function SabiasQueRotativo() {
           <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
           <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
         </View>
-        {/* Indicadores */}
         <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 14, justifyContent: 'center' }}>
           {SABIAS_QUE.map((_, i) => (
             <View
@@ -176,13 +175,7 @@ export default function HomeScreen() {
         {/* Banner */}
         <View style={{ position: 'relative' }}>
           <Image source={{ uri: HEADER_IMAGE }} style={{ width: '100%', height: 200 }} contentFit="cover" />
-          <View
-            style={{
-              position: 'absolute',
-              top: 16,
-              right: 20,
-            }}
-          >
+          <View style={{ position: 'absolute', top: 16, right: 20 }}>
             <Pressable onPress={toggleIdioma}>
               <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
                 <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>
@@ -224,43 +217,45 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* ¿Sabías que? con imágenes indígenas */}
         <SabiasQueRotativo />
-
-        {/* Mascota tortuga guía */}
         <MascotaTortuga />
 
         {/* Accesos rápidos */}
         <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginHorizontal: 20, marginTop: 24, marginBottom: 10 }}>
-          📚 {idioma === 'es' ? 'Áreas de repaso' : 'Review areas'}
+          📚 {idioma === 'es' ? 'Unidades de Aprendizaje' : 'Learning Units'}
         </Text>
 
         <View style={{ paddingHorizontal: 20, gap: 10, paddingBottom: 12 }}>
-          {/* Audio repaso */}
-          <Pressable onPress={() => router.push('/(app)/audios')}>
+          
+          {/* 🔥 REEMPLAZO: Módulos de estudio (Apoya al nuevo flujo de la tesis) */}
+          <Pressable onPress={() => router.push('/(app)/(tabs)/modulos' as any)}>
             <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#F0EDE8' }}>
-              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontSize: 24 }}>🔊</Text>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 24 }}>🗂️</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{idioma === 'es' ? 'Audios de repaso' : 'Audio review'}</Text>
-                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{idioma === 'es' ? 'Escucha todas las palabras en Kariña' : 'Listen to all Kariña words'}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>
+                  {idioma === 'es' ? 'Módulos de estudio' : 'Study modules'}
+                </Text>
+                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                  {idioma === 'es' ? 'Entra a las lecciones organizadas por nivel' : 'Access lessons organized by level'}
+                </Text>
               </View>
-              <Text style={{ fontSize: 20, color: '#F59E0B' }}>→</Text>
+              <Text style={{ fontSize: 20, color: '#2E7D32' }}>→</Text>
             </View>
           </Pressable>
 
           {/* Diccionario */}
           <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
             <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#F0EDE8' }}>
-              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ fontSize: 24 }}>📖</Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{idioma === 'es' ? 'Diccionario de repaso' : 'Review dictionary'}</Text>
                 <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{idioma === 'es' ? 'Busca cualquier palabra Kariña o español' : 'Search any Kariña or Spanish word'}</Text>
               </View>
-              <Text style={{ fontSize: 20, color: '#2E7D32' }}>→</Text>
+              <Text style={{ fontSize: 20, color: '#F59E0B' }}>→</Text>
             </View>
           </Pressable>
 
@@ -279,7 +274,6 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        {/* Espacio inferior */}
         <View style={{ height: 30 }} />
       </ScrollView>
     </SafeAreaView>

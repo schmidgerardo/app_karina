@@ -159,7 +159,13 @@ function ModuloItem({ item, isCompleted, idioma }: { item: Module; isCompleted: 
       </Pressable>
 
       {/* Botón de práctica */}
-      <Pressable onPress={() => router.push(`/(app)/practica/${item.id}`)} style={{ marginTop: 8 }}>
+      <Pressable
+        onPress={() => router.push({
+          pathname: '/(app)/juego/unir',
+          params: { modulo_id: item.id },
+        })}
+        style={{ marginTop: 8 }}
+      >
         <View
           style={{
             backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0',
