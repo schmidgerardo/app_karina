@@ -72,7 +72,7 @@ export default function SignInScreen() {
       >
         {/* Imagen de indígenas */}
         <Image
-          source={{ uri: 'https://miaoda-conversation-file.s3cdn.medo.dev/user-c6js8p49d4ao/app-c6jsx92bbkld/20260607/1000861193.jpg' }}
+          source={require('../../../../image.png')}
           style={{ width: '100%', height: 220 }}
           contentFit="cover"
         />

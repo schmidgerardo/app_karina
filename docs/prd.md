@@ -85,7 +85,7 @@ App Kariña
 
 #### 3.3.1 Header/Banner Visual
 - Imagen de fondo representativa de la cultura Kariña
-- URL de imagen: https://miaoda-conversation-file.s3cdn.medo.dev/user-c6js8p49d4ao/app-c6jsx92bbkld/20260607/1000861193.jpg
+- URL de imagen: image.png
 - Muestra elementos culturales: personas indígenas con vestimenta tradicional, selva tropical, tepuyes
 
 #### 3.3.2 Logo y Título

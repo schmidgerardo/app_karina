@@ -6,8 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 
-const HEADER_IMAGE =
-  'https://miaoda-conversation-file.s3cdn.medo.dev/user-c6js8p49d4ao/app-c6jsx92bbkld/20260607/1000861193.jpg';
+const HEADER_IMAGE = require('../../../../../image.png');
 
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 
@@ -215,7 +214,7 @@ export default function HomeScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Banner */}
         <View style={{ position: 'relative' }}>
-          <Image source={{ uri: HEADER_IMAGE }} style={{ width: '100%', height: 200 }} contentFit="cover" />
+          <Image source={HEADER_IMAGE} style={{ width: '100%', height: 200 }} contentFit="cover" />
           <View style={{ position: 'absolute', top: 16, right: 20 }}>
             <Pressable onPress={toggleIdioma}>
               <View style={{ backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
