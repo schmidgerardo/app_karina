@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,10 @@ const HEADER_IMAGE =
   'https://miaoda-conversation-file.s3cdn.medo.dev/user-c6js8p49d4ao/app-c6jsx92bbkld/20260607/1000861193.jpg';
 
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
+
+// Obtenemos el ancho de la pantalla para calcular el tamaño exacto de cada tarjeta
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = SCREEN_WIDTH - 40; // Restamos los márgenes laterales (20 de cada lado)
 
 interface ProgressItem {
   modulo_id: number;
@@ -46,27 +50,64 @@ const SABIAS_QUE = [
 
 function SabiasQueRotativo() {
   const [idx, setIdx] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // Efecto para el auto-scroll automático cada 8 segundos
   useEffect(() => {
     const interval = setInterval(() => {
-      setIdx((prev) => (prev + 1) % SABIAS_QUE.length);
-    });
-    return () => clearInterval(interval);
-  }, []);
+      const nextIdx = (idx + 1) % SABIAS_QUE.length;
+      setIdx(nextIdx);
+      
+      // Desliza el ScrollView de forma animada a la posición de la tarjeta correspondiente
+      scrollViewRef.current?.scrollTo({
+        x: nextIdx * CARD_WIDTH,
+        animated: true,
+      });
+    }, 8000); // 8000ms = 8 segundos de espera controlada
 
-  const s = SABIAS_QUE[idx];
+    return () => clearInterval(interval);
+  }, [idx]);
+
+  // Captura el movimiento manual del usuario con el dedo para actualizar las bolitas de progreso abajo
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const contentOffsetX = event.nativeEvent.contentOffset.x;
+    const currentIdx = Math.round(contentOffsetX / CARD_WIDTH);
+    if (currentIdx !== idx && currentIdx >= 0 && currentIdx < SABIAS_QUE.length) {
+      setIdx(currentIdx);
+    }
+  };
 
   return (
-    <View style={{ marginHorizontal: 20, marginTop: 20 }}>
-      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginBottom: 10 }}>
+    <View style={{ marginTop: 20 }}>
+      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginBottom: 10, marginHorizontal: 20 }}>
         💡 ¿Sabías que?
       </Text>
-      <View style={{ borderRadius: 18, overflow: 'hidden', backgroundColor: '#1B5E20' }}>
-        <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
-        <View style={{ padding: 16 }}>
-          <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
-          <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 14, justifyContent: 'center' }}>
+
+      <View style={{ marginHorizontal: 20, borderRadius: 18, overflow: 'hidden', backgroundColor: '#1B5E20' }}>
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          snapToInterval={CARD_WIDTH}
+          decelerationRate="fast"
+          contentContainerStyle={{ width: CARD_WIDTH * SABIAS_QUE.length }}
+        >
+          {SABIAS_QUE.map((s, i) => (
+            <View key={i} style={{ width: CARD_WIDTH }}>
+              <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+              <View style={{ padding: 16 }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
+              </View>
+            </View>
+          ))}
+        </ScrollView>
+
+        {/* Indicadores inferiores (Bolitas de progreso) */}
+        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 14, justifyContent: 'center', backgroundColor: '#1B5E20' }}>
           {SABIAS_QUE.map((_, i) => (
             <View
               key={i}
