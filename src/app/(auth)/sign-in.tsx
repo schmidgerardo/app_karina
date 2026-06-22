@@ -71,11 +71,11 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Imagen de indígenas */}
-        <Image
-          source={require('../../../../image.png')}
-          style={{ width: '100%', height: 220 }}
-          contentFit="cover"
-        />
+<Image
+  source={require('@/../assets/image.png')} // 👈 Ruta corregida y blindada
+  style={{ width: '100%', height: 220 }}
+  contentFit="cover"
+/>
 
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
           {/* Título */}

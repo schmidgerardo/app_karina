@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 
-const HEADER_IMAGE = require('../../../../../image.png');
+// ✅ Así queda corregida la constante arriba en tu archivo
+const HEADER_IMAGE = require('@/../assets/image.png');
 
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 
