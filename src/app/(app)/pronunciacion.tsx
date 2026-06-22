@@ -65,14 +65,14 @@ export default function PronunciacionScreen() {
         } as any);
         formData.append('word_id', word_id as string);
 
-        const res = await fetch('https://tu-api-flask.onrender.com/comparar', {
+        const res = await fetch('https://api-pronunciacion-karina.onrender.com/comparar', {
           method: 'POST',
           body: formData,
         });
         const data = await res.json();
         setEvaluationScore(data.score); // Ej: 84.2%
       } catch (e) {
-        console.error("Error en API de Flask", e);
+        console.error("Error en API de Render", e);
       } finally {
         setIsEvaluating(false);
       }
