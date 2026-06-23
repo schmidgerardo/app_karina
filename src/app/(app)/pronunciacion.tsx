@@ -53,64 +53,81 @@ export default function PronunciacionScreen() {
     }
   }
 
-  async function stopRecording() {
-    if (!recordingInstance) return;
-    try {
-      setIsRecording(false);
+async function stopRecording() {
+  if (!recordingInstance) return;
+  
+  try {
+    setIsRecording(false);
+    
+    // 🛡️ ESCUDO WEB: Verificamos el estado interno antes de mandar a descargar
+    const status = await recordingInstance.getStatusAsync();
+    
+    if (status.canRecord) {
       await recordingInstance.stopAndUnloadAsync();
       const uri = recordingInstance.getURI();
       setRecordingUri(uri); // Guardamos la ruta local temporal
-    } catch (err) {
-      console.error("Error al detener la grabación", err);
+    } else {
+      console.log("⚠️ La grabación ya había sido detenida o descargada internamente.");
     }
+  } catch (err) {
+    // 🚨 Capturamos el error silenciosamente para que la app web no colapse
+    console.warn("Aviso controlado en entorno Web al detener grabación:", err);
   }
+}
 
   // 3. LA BIFURCACIÓN ESTRATÉGICA (Con medición de tiempos reales)
-  async function evaluarPronunciacion() {
-    if (!recordingUri) return;
+async function evaluarPronunciacion() {
+  if (!recordingUri) return;
+  setIsEvaluating(true);
+  setEvaluationScore(null);
 
-    if (isConnected) {
-      setIsEvaluating(true);
-      const tiempoInicio = performance.now(); // ⏱️ Inicia el cronómetro técnico
+  const tiempoInicio = performance.now();
 
-      try {
-        const formData = new FormData();
-        formData.append('audio_estudiante', {
-          uri: recordingUri,
-          name: 'intento.m4a',
-          type: 'audio/m4a',
-        } as any);
+  try {
+    const formData = new FormData();
 
-        // 🎯 AJUSTE: Si word_id no viene del router (clic directo), mandamos un fallback estático para testear
-        const activeWordId = (word_id as string) || 'palabra_prueba_general';
-        formData.append('word_id', activeWordId);
-
-        const res = await fetch('https://api-pronunciacion-karina.onrender.com/comparar', {
-          method: 'POST',
-          body: formData,
-        });
-        
-        const data = await res.json();
-        
-        const tiempoFin = performance.now(); // ⏱️ Detiene el cronómetro
-        const totalSegundos = ((tiempoFin - tiempoInicio) / 1000).toFixed(2);
-
-        if (data.success) {
-          setEvaluationScore(data.score); // Ej: 78.5%
-          console.log(`🎯 ¡Evaluación exitosa! Servidor tardó exactamente ${totalSegundos} segundos en responder.`);
-        } else {
-          console.error("La API de Python devolvió un error controlado:", data.error);
-        }
-      } catch (e) {
-        console.error("Error crítico de red con el servidor de Render", e);
-      } finally {
-        setIsEvaluating(false);
-      }
+    // 🌐 EL TRUCO HÍBRIDO (Móvil vs Web)
+    if (typeof window !== 'undefined' && !recordingUri.startsWith('file://')) {
+      // 🖥️ ENTORNO WEB: El uri de la web es un "blob:http...". 
+      // Tenemos que descargar el blob localmente en el navegador y empaquetarlo como un archivo real.
+      const responseAudio = await fetch(recordingUri);
+      const audioBlob = await responseAudio.blob();
+      
+      // Enviamos el blob web con tipo genérico de audio, Python se encargará de decodificarlo
+      formData.append('audio_estudiante', audioBlob, 'intento.wav');
     } else {
-      // 📴 MODO OFFLINE: "Espejo Acústico" analógico
-      console.log("Modo Offline: Reproduciendo audios en paralelo para autoevaluación");
+      // 📱 ENTORNO MÓVIL NATIVO (Android/iOS)
+      formData.append('audio_estudiante', {
+        uri: recordingUri,
+        name: 'intento.m4a',
+        type: 'audio/m4a',
+      } as any);
     }
+
+    const activeWordId = (word_id as string) || 'palabra_prueba_general';
+    formData.append('word_id', activeWordId);
+
+    const res = await fetch('https://api-pronunciacion-karina.onrender.com/comparar', {
+      method: 'POST',
+      body: formData,
+    });
+    
+    const data = await res.json();
+    const tiempoFin = performance.now();
+    const totalSegundos = ((tiempoFin - tiempoInicio) / 1000).toFixed(2);
+
+    if (data.success) {
+      setEvaluationScore(data.score);
+      console.log(`🎯 ¡Evaluación exitosa! Servidor tardó exactamente ${totalSegundos} segundos en la versión Web.`);
+    } else {
+      console.error("Error de la API:", data.error);
+    }
+  } catch (e) {
+    console.error("Error crítico de red en modo Web/Móvil:", e);
+  } finally {
+    setIsEvaluating(false);
   }
+}
 
   return (
     <View className="flex-1 bg-background p-5 items-center justify-center">
