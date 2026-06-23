@@ -54,24 +54,45 @@ export default function PronunciacionScreen() {
   }
 
 async function stopRecording() {
+  // 1. Si no hay instancia, abortamos de inmediato
   if (!recordingInstance) return;
   
   try {
     setIsRecording(false);
     
-    // 🛡️ ESCUDO WEB: Verificamos el estado interno antes de mandar a descargar
-    const status = await recordingInstance.getStatusAsync();
-    
-    if (status.canRecord) {
-      await recordingInstance.stopAndUnloadAsync();
-      const uri = recordingInstance.getURI();
-      setRecordingUri(uri); // Guardamos la ruta local temporal
-    } else {
-      console.log("⚠️ La grabación ya había sido detenida o descargada internamente.");
+    // 2. Intentamos extraer el URI primero por si la web ya la cerró internamente
+    let uri = null;
+    try {
+      uri = recordingInstance.getURI();
+    } catch (e) {
+      // Si falla obtener el URI aquí, lo manejamos abajo
     }
+
+    // 3. Preguntamos el estatus de manera segura
+    const status = await recordingInstance.getStatusAsync().catch(() => null);
+    
+    // 4. Si el estatus nos dice que se puede descargar, procedemos
+    if (status && status.isPrepared && !status.isDoneRecording) {
+      await recordingInstance.stopAndUnloadAsync().catch((err) => {
+        console.log("Descarga asíncrona paralela ignorada:", err.message);
+      });
+      
+      if (!uri) {
+        uri = recordingInstance.getURI();
+      }
+    }
+    
+    // 5. Si logramos rescatar el URI (Blob en web / File en móvil), lo guardamos
+    if (uri) {
+      setRecordingUri(uri);
+    }
+
   } catch (err) {
-    // 🚨 Capturamos el error silenciosamente para que la app web no colapse
-    console.warn("Aviso controlado en entorno Web al detener grabación:", err);
+    // 🛡️ Captura absoluta: Evita que el hilo principal se entere si la emulación web patina
+    console.warn("Aviso controlado de ciclo de vida de audio en Web:", err);
+  } finally {
+    // 6. Limpiamos la referencia para que startRecording() pueda crear una nueva limpia
+    setRecordingInstance(null);
   }
 }
 
