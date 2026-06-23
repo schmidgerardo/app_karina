@@ -25,17 +25,29 @@ export default function PronunciacionScreen() {
     checkInternet();
   }, []);
 
-  // 2. Funciones para controlar el micrófono (expo-av)
+  // 2. Funciones para controlar el micrófono (expo-av) con ESCUDO de liberación
   async function startRecording() {
     try {
+      // 🛡️ ESCUDO ANTI-TRABA: Si quedó una instancia colgada en memoria, la limpiamos a la fuerza
+      if (recordingInstance) {
+        try {
+          await recordingInstance.stopAndUnloadAsync();
+        } catch (e) {
+          // Ya estaba descargada, ignoramos
+        }
+      }
+
       await Audio.requestPermissionsAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       
+      // Creamos la nueva grabación de forma limpia
       const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY // Genera un archivo limpio para análisis
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
       );
+      
       setRecordingInstance(recording);
       setIsRecording(true);
+      setEvaluationScore(null); // Limpiamos el puntaje anterior al volver a grabar
     } catch (err) {
       console.error("Fallo al iniciar grabación", err);
     }
@@ -43,19 +55,24 @@ export default function PronunciacionScreen() {
 
   async function stopRecording() {
     if (!recordingInstance) return;
-    setIsRecording(false);
-    await recordingInstance.stopAndUnloadAsync();
-    const uri = recordingInstance.getURI();
-    setRecordingUri(uri); // Aquí guardamos la ruta local temporal del audio grabado
+    try {
+      setIsRecording(false);
+      await recordingInstance.stopAndUnloadAsync();
+      const uri = recordingInstance.getURI();
+      setRecordingUri(uri); // Guardamos la ruta local temporal
+    } catch (err) {
+      console.error("Error al detener la grabación", err);
+    }
   }
 
-  // 3. LA BIFURCACIÓN ESTRATÉGICA (El núcleo de tu tesis)
+  // 3. LA BIFURCACIÓN ESTRATÉGICA (Con medición de tiempos reales)
   async function evaluarPronunciacion() {
     if (!recordingUri) return;
 
     if (isConnected) {
-      // 🌐 MODO ONLINE: Mandar el binario a tu microservicio de Python (Flask)
       setIsEvaluating(true);
+      const tiempoInicio = performance.now(); // ⏱️ Inicia el cronómetro técnico
+
       try {
         const formData = new FormData();
         formData.append('audio_estudiante', {
@@ -63,30 +80,40 @@ export default function PronunciacionScreen() {
           name: 'intento.m4a',
           type: 'audio/m4a',
         } as any);
-        formData.append('word_id', word_id as string);
+
+        // 🎯 AJUSTE: Si word_id no viene del router (clic directo), mandamos un fallback estático para testear
+        const activeWordId = (word_id as string) || 'palabra_prueba_general';
+        formData.append('word_id', activeWordId);
 
         const res = await fetch('https://api-pronunciacion-karina.onrender.com/comparar', {
           method: 'POST',
           body: formData,
         });
+        
         const data = await res.json();
-        setEvaluationScore(data.score); // Ej: 84.2%
+        
+        const tiempoFin = performance.now(); // ⏱️ Detiene el cronómetro
+        const totalSegundos = ((tiempoFin - tiempoInicio) / 1000).toFixed(2);
+
+        if (data.success) {
+          setEvaluationScore(data.score); // Ej: 78.5%
+          console.log(`🎯 ¡Evaluación exitosa! Servidor tardó exactamente ${totalSegundos} segundos en responder.`);
+        } else {
+          console.error("La API de Python devolvió un error controlado:", data.error);
+        }
       } catch (e) {
-        console.error("Error en API de Render", e);
+        console.error("Error crítico de red con el servidor de Render", e);
       } finally {
         setIsEvaluating(false);
       }
     } else {
       // 📴 MODO OFFLINE: "Espejo Acústico" analógico
-      // Disparamos en simultáneo el audio nativo de referencia y el del alumno
       console.log("Modo Offline: Reproduciendo audios en paralelo para autoevaluación");
-      // Aquí metes la lógica para reproducir tu audio local + el del nativo al mismo tiempo
     }
   }
 
   return (
     <View className="flex-1 bg-background p-5 items-center justify-center">
-      {/* Tu UI limpia con las clases de NativeWind (Tailwind) */}
       <Text className="text-xl font-bold text-primary">Práctica de Pronunciación</Text>
       <Text className="text-sm text-muted-foreground mb-4">
         {isConnected ? "📡 Modo Online: Evaluación Algorítmica" : "📴 Modo Offline: Autoevaluación asistida"}
