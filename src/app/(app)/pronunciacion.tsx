@@ -17,29 +17,27 @@ export default function PronunciacionScreen() {
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isPlayingNative, setIsPlayingNative] = useState(false);
 
-  // Estados de Autoevaluación (modo offline/fallback)
+  // Estados de autoevaluación offline
   const [modoAutoevaluacion, setModoAutoevaluacion] = useState(false);
   const [isPlayingSuperpuesto, setIsPlayingSuperpuesto] = useState(false);
 
   const [palabraActual, setPalabraActual] = useState<any>(null);
   const [loadingPalabra, setLoadingPalabra] = useState(true);
 
-  // Referencias para controlar el hardware de audio y evitar ráfagas
+  // Referencias para control de hardware
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundProfesorRef = useRef<Audio.Sound | null>(null);
   const soundAlumnoRef = useRef<Audio.Sound | null>(null);
-  const isActionLocked = useRef<boolean>(false); // Candado anti-ráfagas (especialmente en web)
+  const isActionLocked = useRef<boolean>(false);
 
   // -----------------------------------------------------------------
-  // Inicialización: cargar palabra y comprobar conectividad
+  // Inicialización
   // -----------------------------------------------------------------
   useEffect(() => {
-    async function inicializarPantalla() {
-      // Estado de red
+    async function inicializar() {
       const status = await Network.getNetworkStateAsync();
       setIsConnected(status.isConnected ?? false);
 
-      // URL base del bucket público de Supabase (inyección automática)
       const SUPABASE_STORAGE_URL =
         'https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/audios/';
 
@@ -53,7 +51,6 @@ export default function PronunciacionScreen() {
             .single();
           dataWord = data;
         } else {
-          // Si no se pasa ID, se toma la primera palabra que tenga audio
           const { data } = await supabase
             .from('words')
             .select('*')
@@ -63,22 +60,20 @@ export default function PronunciacionScreen() {
         }
 
         if (dataWord) {
-          // Si la URL es relativa, se completa con la base del bucket
           if (dataWord.audio_url && !dataWord.audio_url.startsWith('http')) {
             dataWord.audio_url = `${SUPABASE_STORAGE_URL}${dataWord.audio_url}`;
           }
           setPalabraActual(dataWord);
         }
       } catch (err) {
-        console.error('Error inicializando palabra:', err);
+        console.error('Error inicializando:', err);
       } finally {
         setLoadingPalabra(false);
       }
     }
 
-    inicializarPantalla();
+    inicializar();
 
-    // Limpieza al desmontar
     return () => {
       if (recordingRef.current) {
         recordingRef.current.stopAndUnloadAsync().catch(() => {});
@@ -93,7 +88,7 @@ export default function PronunciacionScreen() {
   }, [word_id]);
 
   // -----------------------------------------------------------------
-  // Reproducir audio del profesor (muestra nativa)
+  // Reproducir audio del profesor
   // -----------------------------------------------------------------
   async function escucharProfesor() {
     if (!palabraActual?.audio_url || isPlayingNative) return;
@@ -105,24 +100,20 @@ export default function PronunciacionScreen() {
       );
       soundProfesorRef.current = sound;
       sound.setOnPlaybackStatusUpdate((s: any) => {
-        if (s.didJustFinish) {
-          setIsPlayingNative(false);
-        }
+        if (s.didJustFinish) setIsPlayingNative(false);
       });
-    } catch (err) {
-      console.error('Error al reproducir profesor:', err);
+    } catch {
       setIsPlayingNative(false);
     }
   }
 
   // -----------------------------------------------------------------
-  // Reproducción superpuesta (alumno + profesor) para autoevaluación
+  // Reproducción superpuesta (profesor + alumno)
   // -----------------------------------------------------------------
   async function reproducirSuperpuestos() {
     if (!palabraActual?.audio_url || !recordingUri || isPlayingSuperpuesto) return;
     try {
       setIsPlayingSuperpuesto(true);
-
       const { sound: soundProf } = await Audio.Sound.createAsync({
         uri: palabraActual.audio_url,
       });
@@ -133,11 +124,9 @@ export default function PronunciacionScreen() {
       soundProfesorRef.current = soundProf;
       soundAlumnoRef.current = soundAlum;
 
-      // Iniciar ambos simultáneamente
       await soundProf.playAsync();
       await soundAlum.playAsync();
 
-      // Cuando termine el profesor, damos por finalizada la reproducción
       soundProf.setOnPlaybackStatusUpdate((s: any) => {
         if (s.didJustFinish) {
           setIsPlayingSuperpuesto(false);
@@ -145,17 +134,43 @@ export default function PronunciacionScreen() {
           soundAlum.unloadAsync().catch(() => {});
         }
       });
-    } catch (err) {
-      console.error('Error en reproducción superpuesta:', err);
+    } catch {
       setIsPlayingSuperpuesto(false);
     }
   }
 
   // -----------------------------------------------------------------
-  // Grabación: inicio (press-in)
+  // Grabación – OPCIONES PERSONALIZADAS PARA WAV (multiplataforma)
   // -----------------------------------------------------------------
+  const getRecordingOptions = (): Audio.RecordingOptions => {
+    return {
+      android: {
+        extension: '.wav',
+        outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT,
+        audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_DEFAULT,
+        sampleRate: 44100,
+        numberOfChannels: 1,
+        bitRate: 128000,
+      },
+      ios: {
+        extension: '.wav',
+        outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
+        audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
+        sampleRate: 44100,
+        numberOfChannels: 1,
+        bitRate: 128000,
+        linearPCMBitDepth: 16,
+        linearPCMIsBigEndian: false,
+        linearPCMIsFloat: false,
+      },
+      web: {
+        mimeType: 'audio/wav',
+        bitsPerSecond: 128000,
+      },
+    };
+  };
+
   async function startRecording() {
-    // Evita múltiples llamadas simultáneas (especialmente en web)
     if (isActionLocked.current || isRecording) return;
     try {
       isActionLocked.current = true;
@@ -169,7 +184,7 @@ export default function PronunciacionScreen() {
       });
 
       const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
+        getRecordingOptions()
       );
       recordingRef.current = recording;
       setIsRecording(true);
@@ -180,9 +195,6 @@ export default function PronunciacionScreen() {
     }
   }
 
-  // -----------------------------------------------------------------
-  // Grabación: parada y evaluación automática (press-out)
-  // -----------------------------------------------------------------
   async function stopAndAutoEvaluate() {
     if (!recordingRef.current || !isRecording) return;
     try {
@@ -192,7 +204,6 @@ export default function PronunciacionScreen() {
 
       if (uri) {
         setRecordingUri(uri);
-        // Si hay conexión, se envía a la API; si no, se activa autoevaluación
         if (isConnected) {
           evaluarAudioDirecto(uri);
         } else {
@@ -207,28 +218,25 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Llamada a la API con timeout de 3.5 segundos
+  // Envío a la API con timeout de 3.5 s
   // -----------------------------------------------------------------
   async function evaluarAudioDirecto(uriParaEvaluar: string) {
     setIsEvaluating(true);
-
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
 
     try {
       const formData = new FormData();
 
-      // Adaptación para web: obtener Blob a partir de la URI
-      if (Platform.OS === 'web' && !uriParaEvaluar.startsWith('file://')) {
+      if (Platform.OS === 'web') {
         const responseAudio = await fetch(uriParaEvaluar);
         const audioBlob = await responseAudio.blob();
         formData.append('audio_estudiante', audioBlob, 'intento.wav');
       } else {
-        // Móvil: se usa el objeto con uri, name y type
         formData.append('audio_estudiante', {
           uri: uriParaEvaluar,
-          name: 'intento.m4a',
-          type: 'audio/m4a',
+          name: 'intento.wav',
+          type: 'audio/wav',
         } as any);
       }
 
@@ -249,11 +257,9 @@ export default function PronunciacionScreen() {
       if (data.success) {
         setEvaluationScore(data.score);
       } else {
-        // Si la API devuelve error, se pasa a modo autoevaluación
         setModoAutoevaluacion(true);
       }
     } catch (e) {
-      // Timeout, error de red o cualquier excepción → modo offline
       console.warn('Evaluación fallida, conmutando a autoevaluación:', e);
       setModoAutoevaluacion(true);
     } finally {
@@ -262,7 +268,7 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Renderizado condicional (carga de palabra)
+  // Renderizado (sin <div> ni <span>)
   // -----------------------------------------------------------------
   if (loadingPalabra) {
     return (
@@ -272,12 +278,9 @@ export default function PronunciacionScreen() {
     );
   }
 
-  // -----------------------------------------------------------------
-  // UI principal (sin divs, todo con componentes React Native)
-  // -----------------------------------------------------------------
   return (
     <View className="flex-1 bg-background p-6 items-center justify-center">
-      {/* Encabezado */}
+      {/* Información de la palabra */}
       <Text className="text-sm uppercase tracking-widest text-muted-foreground mb-1">
         Palabra en evaluación
       </Text>
@@ -298,7 +301,7 @@ export default function PronunciacionScreen() {
         {isPlayingNative ? '🔊 Escuchando...' : '🔈 Oír Profesor Nativo'}
       </Button>
 
-      {/* Micrófono: Pressable en lugar de div */}
+      {/* Micrófono (Pressable) */}
       <View className="items-center justify-center mb-6">
         <Pressable
           onPressIn={startRecording}
@@ -315,7 +318,7 @@ export default function PronunciacionScreen() {
         </Text>
       </View>
 
-      {/* Indicador de evaluación en curso */}
+      {/* Indicador de evaluación */}
       {isEvaluating && (
         <View className="flex-row items-center mt-4">
           <ActivityIndicator color="#166534" className="mr-2" />
@@ -323,7 +326,7 @@ export default function PronunciacionScreen() {
         </View>
       )}
 
-      {/* Panel de resultado online */}
+      {/* Resultado online */}
       {evaluationScore !== null && !isEvaluating && (
         <View className="mt-6 p-4 rounded-xl bg-card border border-border items-center w-full max-w-xs">
           <Text className="text-sm text-muted-foreground">Resultado obtenido por la IA</Text>
@@ -340,7 +343,7 @@ export default function PronunciacionScreen() {
         </View>
       )}
 
-      {/* Panel de autoevaluación (offline/fallback) */}
+      {/* Panel de autoevaluación (offline / fallback) */}
       {modoAutoevaluacion && (
         <View className="mt-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 items-center w-full max-w-sm shadow-sm">
           <Text className="font-bold text-emerald-800 text-center mb-2">
