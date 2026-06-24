@@ -86,68 +86,75 @@ export default function PronunciacionScreen() {
     }
   }
 
-// Añade esta variable justo ARRIBA de la función startRecording, fuera de los estados si quieres, o ahí mismo:
-let isPreparingRecording = false;
+  // ==========================================
+  // 3. Control de Grabación Nativa Blindada
+  // ==========================================
+  async function startRecording() {
+    try {
+      setEvaluationScore(null);
 
-async function startRecording() {
-  // 🛡️ CANDADO ANTI-RÁFAGA: Si ya se está preparando una grabadora, abortamos de inmediato
-  if (isPreparingRecording || isRecording) return;
-  
-  try {
-    isPreparingRecording = true;
-    setEvaluationScore(null);
+      if (recordingInstance) {
+        try { await recordingInstance.stopAndUnloadAsync(); } catch (e) {}
+      }
 
-    // Limpieza profunda de instancias colgadas
-    if (recordingInstance) {
-      try {
-        await recordingInstance.stopAndUnloadAsync().catch(() => {});
-      } catch (e) {}
+      await Audio.requestPermissionsAsync();
+      await Audio.setAudioModeAsync({ 
+        allowsRecordingIOS: true, 
+        playsInSilentModeIOS: true 
+      });
+      
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+      
+      setRecordingInstance(recording);
+      setIsRecording(true);
+      console.log("🎙️ Grabación iniciada con éxito.");
+    } catch (err) {
+      console.error("❌ Fallo al iniciar grabación:", err);
+    }
+  }
+
+  async function stopAndAutoEvaluate() {
+    if (!recordingInstance) {
+      console.log("⚠️ No se detectó ninguna instancia de grabación activa al soltar.");
+      setIsRecording(false);
+      return;
     }
 
-    await Audio.requestPermissionsAsync();
-    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-    
-    const { recording } = await Audio.Recording.createAsync(
-      Audio.RecordingOptionsPresets.HIGH_QUALITY
-    );
-    
-    // Doble verificación por si el usuario soltó el botón mientras cargaba
-    setRecordingInstance(recording);
-    setIsRecording(true);
-  } catch (err) {
-    console.error("Fallo al iniciar grabación", err);
-  } finally {
-    isPreparingRecording = false;
-  }
-}
-
-async function stopAndAutoEvaluate() {
-  // Esperamos un mini delay de 100ms para darle tiempo a la Web de procesar el flujo asíncrono
-  setTimeout(async () => {
-    if (!recordingInstance) return;
     try {
       setIsRecording(false);
-      const status = await recordingInstance.getStatusAsync().catch(() => null);
+      console.log("🛑 Deteniendo grabación...");
       
-      if (status && status.isPrepared && !status.isDoneRecording) {
-        await recordingInstance.stopAndUnloadAsync();
-        const uri = recordingInstance.getURI();
-        if (uri) {
-          setRecordingUri(uri);
-          evaluarAudioDirecto(uri);
-        }
+      // Forzamos la descarga directa
+      await recordingInstance.stopAndUnloadAsync().catch(() => {});
+      const uri = recordingInstance.getURI();
+      
+      if (uri) {
+        setRecordingUri(uri);
+        console.log("💾 Audio capturado en URI:", uri);
+        // Disparamos la evaluación
+        evaluarAudioDirecto(uri);
+      } else {
+        console.error("❌ No se pudo recuperar el URI del audio.");
       }
     } catch (err) {
-      console.warn("Aviso controlado al soltar micrófono:", err);
+      console.warn("⚠️ Aviso controlado al soltar micrófono:", err);
     } finally {
       setRecordingInstance(null);
     }
-  }, 100);
-}
+  }
+
+  // ==========================================
   // 4. Lógica de envío automático a Python
+  // ==========================================
   async function evaluarAudioDirecto(uriParaEvaluar: string) {
-    if (!isConnected || !palabraActual) return;
+    if (!isConnected || !palabraActual) {
+      console.log("⚠️ Abortando evaluación: Sin conexión o sin palabra cargada.");
+      return;
+    }
     setIsEvaluating(true);
+    console.log("🚀 Enviando audio al servidor de Render...");
 
     try {
       const formData = new FormData();
@@ -164,7 +171,6 @@ async function stopAndAutoEvaluate() {
         } as any);
       }
 
-      // Mandamos la URL completa que construimos para que Python la descargue
       formData.append('audio_profesor_url', palabraActual.audio_url);
 
       const res = await fetch('https://api-pronunciacion-karina.onrender.com/comparar', {
@@ -173,13 +179,15 @@ async function stopAndAutoEvaluate() {
       });
       
       const data = await res.json();
+      console.log("📥 Respuesta recibida del servidor:", data);
+
       if (data.success) {
         setEvaluationScore(data.score);
       } else {
-        console.error("Error de la API:", data.error);
+        console.error("❌ Error devuelto por la API:", data.error);
       }
     } catch (e) {
-      console.error("Error de red:", e);
+      console.error("❌ Error crítico de red al conectar con Python:", e);
     } finally {
       setIsEvaluating(false);
     }
@@ -212,18 +220,30 @@ async function stopAndAutoEvaluate() {
         {isPlayingNative ? "🔊 Escuchando..." : "🔈 Oír Profesor Nativo"}
       </Button>
 
-      {/* Botón de mantener presionado interactivo híbrido web/móvil */}
+      {/* 🕹️ BOTÓN AJUSTADO PARA EVITAR CONFLICTOS DE INTERFAZ WEB/MÓVIL */}
       <View className="items-center justify-center mb-6">
-        <Pressable 
-          onPressIn={startRecording} 
-          onPressOut={stopAndAutoEvaluate}
-          // @ts-ignore - Soporte directo para mouse de computadoras de escritorio
+        <div
           onMouseDown={startRecording}
           onMouseUp={stopAndAutoEvaluate}
-          className={`w-28 h-28 rounded-full items-center justify-center shadow-lg ${isRecording ? 'bg-destructive scale-95' : 'bg-primary'}`}
+          onTouchStart={startRecording}
+          onTouchEnd={stopAndAutoEvaluate}
+          style={{
+            width: 112,
+            height: 112,
+            borderRadius: '50%',
+            backgroundColor: isRecording ? '#ef4444' : '#166534',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            userSelect: 'none',
+            transform: isRecording ? 'scale(0.95)' : 'scale(1)',
+            transition: 'all 0.1s ease',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+          }}
         >
           <Text className="text-white text-3xl">{isRecording ? "🛑" : "🎙️"}</Text>
-        </Pressable>
+        </div>
         <Text className="text-xs text-muted-foreground mt-3 font-medium">
           {isRecording ? "¡Suelta para evaluar inmediatamente!" : "Mantén presionado para hablar"}
         </Text>
