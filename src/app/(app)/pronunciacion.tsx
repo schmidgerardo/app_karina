@@ -137,20 +137,23 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Grabación – CONFIGURACIÓN HÍBRIDA CON EXTENSIÓN .webm EXPLÍCITA
+  // Grabación – CONFIGURACIÓN CORREGIDA (sin extension en web)
   // -----------------------------------------------------------------
-  const configuracionGrabacion = Platform.select({
-    web: {
-      android: {}, // Requerido por el tipado de Expo
-      ios: {},
-      web: {
-        mimeType: 'audio/webm',
-        extension: '.webm', // ⚡ ¡CON ESTO SE MATA EL ERROR DE LA EXPRESIÓN REGULAR!
-        bitsPerSecond: 128000,
-      },
-    },
-    default: Audio.RecordingOptionsPresets.HIGH_QUALITY, // Excelente calidad nativa en el teléfono
-  });
+  const getRecordingOptions = (): Audio.RecordingOptions => {
+    if (Platform.OS === 'web') {
+      return {
+        android: {}, // requerido por el tipado
+        ios: {},     // requerido por el tipado
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 128000,
+          // ⚠️ NO incluir 'extension' aquí, solo es para android/ios
+        },
+      };
+    }
+    // En móvil usamos la preset de alta calidad (ya incluye extensión .m4a o .wav)
+    return Audio.RecordingOptionsPresets.HIGH_QUALITY;
+  };
 
   async function startRecording() {
     if (isActionLocked.current || isRecording) return;
@@ -165,7 +168,9 @@ export default function PronunciacionScreen() {
         playsInSilentModeIOS: true,
       });
 
-      const { recording } = await Audio.Recording.createAsync(configuracionGrabacion);
+      const { recording } = await Audio.Recording.createAsync(
+        getRecordingOptions()
+      );
       recordingRef.current = recording;
       setIsRecording(true);
     } catch (err) {
@@ -211,6 +216,7 @@ export default function PronunciacionScreen() {
       if (Platform.OS === 'web') {
         const responseAudio = await fetch(uriParaEvaluar);
         const audioBlob = await responseAudio.blob();
+        // Se envía con extensión .webm (el backend lo manejará con fallback)
         formData.append('audio_estudiante', audioBlob, 'intento.webm');
       } else {
         // En móvil, HIGH_QUALITY produce .m4a o .wav; lo enviamos como .wav
