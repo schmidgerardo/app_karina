@@ -10,21 +10,18 @@ export default function PronunciacionScreen() {
   const { word_id } = useLocalSearchParams();
   const [isConnected, setIsConnected] = useState<boolean>(true);
 
-  // Estados de grabación y evaluación
   const [isRecording, setIsRecording] = useState(false);
   const [recordingUri, setRecordingUri] = useState<string | null>(null);
   const [evaluationScore, setEvaluationScore] = useState<number | null>(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isPlayingNative, setIsPlayingNative] = useState(false);
 
-  // Estados de autoevaluación offline
   const [modoAutoevaluacion, setModoAutoevaluacion] = useState(false);
   const [isPlayingSuperpuesto, setIsPlayingSuperpuesto] = useState(false);
 
   const [palabraActual, setPalabraActual] = useState<any>(null);
   const [loadingPalabra, setLoadingPalabra] = useState(true);
 
-  // Referencias para control de hardware
   const recordingRef = useRef<Audio.Recording | null>(null);
   const soundProfesorRef = useRef<Audio.Sound | null>(null);
   const soundAlumnoRef = useRef<Audio.Sound | null>(null);
@@ -88,7 +85,7 @@ export default function PronunciacionScreen() {
   }, [word_id]);
 
   // -----------------------------------------------------------------
-  // Reproducir audio del profesor
+  // Reproducir profesor
   // -----------------------------------------------------------------
   async function escucharProfesor() {
     if (!palabraActual?.audio_url || isPlayingNative) return;
@@ -108,7 +105,7 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Reproducción superpuesta (profesor + alumno)
+  // Reproducción superpuesta
   // -----------------------------------------------------------------
   async function reproducirSuperpuestos() {
     if (!palabraActual?.audio_url || !recordingUri || isPlayingSuperpuesto) return;
@@ -140,23 +137,20 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Grabación – Configuración híbrida inteligente
+  // Grabación – CONFIGURACIÓN HÍBRIDA CON EXTENSIÓN .webm EXPLÍCITA
   // -----------------------------------------------------------------
-  const getRecordingOptions = (): Audio.RecordingOptions => {
-    // En web usamos audio/webm (compatible con cualquier navegador)
-    if (Platform.OS === 'web') {
-      return {
-        android: {}, // requerido por la interfaz de tipos
-        ios: {},
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-      };
-    }
-    // En Android/iOS usamos la preset de alta calidad nativa
-    return Audio.RecordingOptionsPresets.HIGH_QUALITY;
-  };
+  const configuracionGrabacion = Platform.select({
+    web: {
+      android: {}, // Requerido por el tipado de Expo
+      ios: {},
+      web: {
+        mimeType: 'audio/webm',
+        extension: '.webm', // ⚡ ¡CON ESTO SE MATA EL ERROR DE LA EXPRESIÓN REGULAR!
+        bitsPerSecond: 128000,
+      },
+    },
+    default: Audio.RecordingOptionsPresets.HIGH_QUALITY, // Excelente calidad nativa en el teléfono
+  });
 
   async function startRecording() {
     if (isActionLocked.current || isRecording) return;
@@ -171,9 +165,7 @@ export default function PronunciacionScreen() {
         playsInSilentModeIOS: true,
       });
 
-      const { recording } = await Audio.Recording.createAsync(
-        getRecordingOptions()
-      );
+      const { recording } = await Audio.Recording.createAsync(configuracionGrabacion);
       recordingRef.current = recording;
       setIsRecording(true);
     } catch (err) {
@@ -219,11 +211,9 @@ export default function PronunciacionScreen() {
       if (Platform.OS === 'web') {
         const responseAudio = await fetch(uriParaEvaluar);
         const audioBlob = await responseAudio.blob();
-        // Se envía con extensión .webm (el backend lo manejará con fallback si no puede leerlo)
         formData.append('audio_estudiante', audioBlob, 'intento.webm');
       } else {
-        // En móvil, HIGH_QUALITY produce archivos .m4a o .wav según la plataforma
-        // Podemos forzar .wav para que scipy lo lea, pero si falla, el backend tiene fallback.
+        // En móvil, HIGH_QUALITY produce .m4a o .wav; lo enviamos como .wav
         formData.append('audio_estudiante', {
           uri: uriParaEvaluar,
           name: 'intento.wav',
@@ -259,7 +249,7 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Renderizado (sin <div> ni <span>)
+  // Renderizado
   // -----------------------------------------------------------------
   if (loadingPalabra) {
     return (
@@ -271,7 +261,6 @@ export default function PronunciacionScreen() {
 
   return (
     <View className="flex-1 bg-background p-6 items-center justify-center">
-      {/* Información de la palabra */}
       <Text className="text-sm uppercase tracking-widest text-muted-foreground mb-1">
         Palabra en evaluación
       </Text>
@@ -282,7 +271,6 @@ export default function PronunciacionScreen() {
         "{palabraActual?.significado_espanol}"
       </Text>
 
-      {/* Botón para escuchar al profesor */}
       <Button
         onPress={escucharProfesor}
         variant="outline"
@@ -292,7 +280,6 @@ export default function PronunciacionScreen() {
         {isPlayingNative ? '🔊 Escuchando...' : '🔈 Oír Profesor Nativo'}
       </Button>
 
-      {/* Micrófono (Pressable) */}
       <View className="items-center justify-center mb-6">
         <Pressable
           onPressIn={startRecording}
@@ -309,7 +296,6 @@ export default function PronunciacionScreen() {
         </Text>
       </View>
 
-      {/* Indicador de evaluación */}
       {isEvaluating && (
         <View className="flex-row items-center mt-4">
           <ActivityIndicator color="#166534" className="mr-2" />
@@ -317,7 +303,6 @@ export default function PronunciacionScreen() {
         </View>
       )}
 
-      {/* Resultado online */}
       {evaluationScore !== null && !isEvaluating && (
         <View className="mt-6 p-4 rounded-xl bg-card border border-border items-center w-full max-w-xs">
           <Text className="text-sm text-muted-foreground">Resultado obtenido por la IA</Text>
@@ -334,7 +319,6 @@ export default function PronunciacionScreen() {
         </View>
       )}
 
-      {/* Panel de autoevaluación (offline / fallback) */}
       {modoAutoevaluacion && (
         <View className="mt-4 p-5 rounded-2xl bg-emerald-50 border border-emerald-200 items-center w-full max-w-sm shadow-sm">
           <Text className="font-bold text-emerald-800 text-center mb-2">
