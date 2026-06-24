@@ -140,34 +140,22 @@ export default function PronunciacionScreen() {
   }
 
   // -----------------------------------------------------------------
-  // Grabación – OPCIONES PERSONALIZADAS PARA WAV (multiplataforma)
+  // Grabación – Configuración híbrida inteligente
   // -----------------------------------------------------------------
   const getRecordingOptions = (): Audio.RecordingOptions => {
-    return {
-      android: {
-        extension: '.wav',
-        outputFormat: Audio.RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT,
-        audioEncoder: Audio.RECORDING_OPTION_ANDROID_AUDIO_ENCODER_DEFAULT,
-        sampleRate: 44100,
-        numberOfChannels: 1,
-        bitRate: 128000,
-      },
-      ios: {
-        extension: '.wav',
-        outputFormat: Audio.RECORDING_OPTION_IOS_OUTPUT_FORMAT_LINEARPCM,
-        audioQuality: Audio.RECORDING_OPTION_IOS_AUDIO_QUALITY_MAX,
-        sampleRate: 44100,
-        numberOfChannels: 1,
-        bitRate: 128000,
-        linearPCMBitDepth: 16,
-        linearPCMIsBigEndian: false,
-        linearPCMIsFloat: false,
-      },
-      web: {
-        mimeType: 'audio/wav',
-        bitsPerSecond: 128000,
-      },
-    };
+    // En web usamos audio/webm (compatible con cualquier navegador)
+    if (Platform.OS === 'web') {
+      return {
+        android: {}, // requerido por la interfaz de tipos
+        ios: {},
+        web: {
+          mimeType: 'audio/webm',
+          bitsPerSecond: 128000,
+        },
+      };
+    }
+    // En Android/iOS usamos la preset de alta calidad nativa
+    return Audio.RecordingOptionsPresets.HIGH_QUALITY;
   };
 
   async function startRecording() {
@@ -231,8 +219,11 @@ export default function PronunciacionScreen() {
       if (Platform.OS === 'web') {
         const responseAudio = await fetch(uriParaEvaluar);
         const audioBlob = await responseAudio.blob();
-        formData.append('audio_estudiante', audioBlob, 'intento.wav');
+        // Se envía con extensión .webm (el backend lo manejará con fallback si no puede leerlo)
+        formData.append('audio_estudiante', audioBlob, 'intento.webm');
       } else {
+        // En móvil, HIGH_QUALITY produce archivos .m4a o .wav según la plataforma
+        // Podemos forzar .wav para que scipy lo lea, pero si falla, el backend tiene fallback.
         formData.append('audio_estudiante', {
           uri: uriParaEvaluar,
           name: 'intento.wav',
