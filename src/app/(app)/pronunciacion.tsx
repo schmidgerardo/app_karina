@@ -86,28 +86,44 @@ export default function PronunciacionScreen() {
     }
   }
 
-  // 3. Control de Grabación Nativa Blindada
-  async function startRecording() {
-    try {
-      if (recordingInstance) {
-        try { await recordingInstance.stopAndUnloadAsync(); } catch (e) {}
-      }
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      setRecordingInstance(recording);
-      setIsRecording(true);
-      setEvaluationScore(null);
-    } catch (err) {
-      console.error("Fallo al iniciar grabación", err);
-    }
-  }
+// Añade esta variable justo ARRIBA de la función startRecording, fuera de los estados si quieres, o ahí mismo:
+let isPreparingRecording = false;
 
-  // Al soltar el botón, detiene la grabación y dispara la evaluación automáticamente
-  async function stopAndAutoEvaluate() {
+async function startRecording() {
+  // 🛡️ CANDADO ANTI-RÁFAGA: Si ya se está preparando una grabadora, abortamos de inmediato
+  if (isPreparingRecording || isRecording) return;
+  
+  try {
+    isPreparingRecording = true;
+    setEvaluationScore(null);
+
+    // Limpieza profunda de instancias colgadas
+    if (recordingInstance) {
+      try {
+        await recordingInstance.stopAndUnloadAsync().catch(() => {});
+      } catch (e) {}
+    }
+
+    await Audio.requestPermissionsAsync();
+    await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+    
+    const { recording } = await Audio.Recording.createAsync(
+      Audio.RecordingOptionsPresets.HIGH_QUALITY
+    );
+    
+    // Doble verificación por si el usuario soltó el botón mientras cargaba
+    setRecordingInstance(recording);
+    setIsRecording(true);
+  } catch (err) {
+    console.error("Fallo al iniciar grabación", err);
+  } finally {
+    isPreparingRecording = false;
+  }
+}
+
+async function stopAndAutoEvaluate() {
+  // Esperamos un mini delay de 100ms para darle tiempo a la Web de procesar el flujo asíncrono
+  setTimeout(async () => {
     if (!recordingInstance) return;
     try {
       setIsRecording(false);
@@ -118,7 +134,6 @@ export default function PronunciacionScreen() {
         const uri = recordingInstance.getURI();
         if (uri) {
           setRecordingUri(uri);
-          // Mandamos a evaluar de una vez sin clics adicionales
           evaluarAudioDirecto(uri);
         }
       }
@@ -127,8 +142,8 @@ export default function PronunciacionScreen() {
     } finally {
       setRecordingInstance(null);
     }
-  }
-
+  }, 100);
+}
   // 4. Lógica de envío automático a Python
   async function evaluarAudioDirecto(uriParaEvaluar: string) {
     if (!isConnected || !palabraActual) return;
