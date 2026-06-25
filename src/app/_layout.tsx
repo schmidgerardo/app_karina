@@ -22,24 +22,30 @@ function AuthGuard() {
   const { syncRecursos } = useDatabaseContext();
   const lastSessionId = useRef<string | null>(null);
 
-  // --- NUEVO useEffect (reemplazo) ---
+  // --- useEffect modificado ---
   useEffect(() => {
     if (isLoading) return;
 
+    // NUEVO: Si hay un token en la URL (Web), no hagas nada. 
+    // Deja que Supabase procese el login tranquilo.
+    if (Platform.OS === 'web' && window.location.hash.includes('access_token')) {
+      return;
+    }
+
+    const inAppGroup = segments[0] === '(app)';
     const inAuthGroup = segments[0] === '(auth)';
-    const isResettingPassword = segments[1] === 'reset-password'; // segments[1] porque el 0 es (auth)
+    
+    // segments[1] porque el 0 suele ser (auth)
+    const isResettingPassword = segments.includes('reset-password');
 
     if (!session && !inAuthGroup) {
       router.replace('/(auth)/sign-in');
-    } else if (session && !isResettingPassword) {
-      // Si hay sesión y NO estamos reseteando clave, vamos adentro
-      if (segments[0] !== '(app)') {
-        router.replace('/(app)/(tabs)');
-      }
+    } else if (session && !inAppGroup && !isResettingPassword) {
+      router.replace('/(app)/(tabs)');
     }
   }, [session, isLoading, segments, router]);
 
-  // --- Segundo useEffect (sin cambios) ---
+  // --- Segundo useEffect (sincronización de recursos) ---
   useEffect(() => {
     if (isLoading || Platform.OS === 'web' || !session) return;
 
