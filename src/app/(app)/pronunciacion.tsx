@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, Text, ActivityIndicator, Pressable, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import * as Network from 'expo-network';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '@/client/supabase';
+import { useDatabaseContext } from '@/context/DatabaseContext';
 import { Button } from '@/components/ui/button';
 
 export default function PronunciacionScreen() {
@@ -22,24 +24,38 @@ export default function PronunciacionScreen() {
   const [palabraActual, setPalabraActual] = useState<any>(null);
   const [loadingPalabra, setLoadingPalabra] = useState(true);
 
-  const recordingRef = useRef<Audio.Recording | null>(null);
-  const soundProfesorRef = useRef<Audio.Sound | null>(null);
-  const soundAlumnoRef = useRef<Audio.Sound | null>(null);
+  const { getLocalWordById } = useDatabaseContext();
+  const recordingRef = useRef<any>(null);
   const isActionLocked = useRef<boolean>(false);
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
 
   // -----------------------------------------------------------------
   // Inicialización
   // -----------------------------------------------------------------
   useEffect(() => {
     async function inicializar() {
-      const status = await Network.getNetworkStateAsync();
-      setIsConnected(status.isConnected ?? false);
+      const networkStatus = await Network.getNetworkStateAsync();
+      setIsConnected(networkStatus.isConnected ?? false);
 
       const SUPABASE_STORAGE_URL =
         'https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/audios/';
 
       try {
         let dataWord: any = null;
+        const isMobile = Platform.OS !== 'web';
+
+        if (isMobile && word_id) {
+          const localWord = await getLocalWordById(Number(word_id));
+          if (localWord) {
+            if (localWord.audio_url && !localWord.audio_url.startsWith('http')) {
+              localWord.audio_url = `${SUPABASE_STORAGE_URL}${localWord.audio_url}`;
+            }
+            setPalabraActual(localWord);
+            return;
+          }
+        }
+
         if (word_id) {
           const { data } = await supabase
             .from('words')
@@ -57,6 +73,20 @@ export default function PronunciacionScreen() {
         }
 
         if (dataWord) {
+          if (isMobile) {
+            const localWord = await getLocalWordById(Number(dataWord.id));
+            if (localWord?.local_audio_path) {
+              setPalabraActual({
+                ...dataWord,
+                local_audio_path: localWord.local_audio_path,
+                audio_url: dataWord.audio_url && !dataWord.audio_url.startsWith('http')
+                  ? `${SUPABASE_STORAGE_URL}${dataWord.audio_url}`
+                  : dataWord.audio_url,
+              });
+              return;
+            }
+          }
+
           if (dataWord.audio_url && !dataWord.audio_url.startsWith('http')) {
             dataWord.audio_url = `${SUPABASE_STORAGE_URL}${dataWord.audio_url}`;
           }
@@ -73,33 +103,47 @@ export default function PronunciacionScreen() {
 
     return () => {
       if (recordingRef.current) {
-        recordingRef.current.stopAndUnloadAsync().catch(() => {});
+        recordingRef.current.stopAndUnloadAsync?.().catch(() => {});
       }
-      if (soundProfesorRef.current) {
-        soundProfesorRef.current.unloadAsync().catch(() => {});
-      }
-      if (soundAlumnoRef.current) {
-        soundAlumnoRef.current.unloadAsync().catch(() => {});
-      }
+      player.pause().catch(() => {});
     };
-  }, [word_id]);
+  }, [word_id, getLocalWordById]);
 
   // -----------------------------------------------------------------
   // Reproducir profesor
   // -----------------------------------------------------------------
   async function escucharProfesor() {
-    if (!palabraActual?.audio_url || isPlayingNative) return;
+    if (!palabraActual?.audio_url && !palabraActual?.local_audio_path) return;
+
+    let audioUrl = null;
+
+    if (Platform.OS !== 'web' && palabraActual.local_audio_path) {
+      const fileInfo = await FileSystem.getInfoAsync(palabraActual.local_audio_path);
+      if (fileInfo.exists) {
+        audioUrl = palabraActual.local_audio_path;
+      }
+    }
+
+    if (!audioUrl && palabraActual.audio_url) {
+      audioUrl = palabraActual.audio_url.startsWith('http')
+        ? palabraActual.audio_url
+        : `https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/audios/${palabraActual.audio_url}`;
+    }
+
+    if (!audioUrl) return;
+
     try {
+      if (status.playing) {
+        await player.pause();
+        setIsPlayingNative(false);
+        return;
+      }
+
+      await player.replace(audioUrl);
+      await player.play();
       setIsPlayingNative(true);
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: palabraActual.audio_url },
-        { shouldPlay: true }
-      );
-      soundProfesorRef.current = sound;
-      sound.setOnPlaybackStatusUpdate((s: any) => {
-        if (s.didJustFinish) setIsPlayingNative(false);
-      });
-    } catch {
+    } catch (err) {
+      console.error('[AUDIO] Error al reproducir audio profesor:', err);
       setIsPlayingNative(false);
     }
   }
@@ -108,98 +152,39 @@ export default function PronunciacionScreen() {
   // Reproducción superpuesta
   // -----------------------------------------------------------------
   async function reproducirSuperpuestos() {
-    if (!palabraActual?.audio_url || !recordingUri || isPlayingSuperpuesto) return;
-    try {
-      setIsPlayingSuperpuesto(true);
-      const { sound: soundProf } = await Audio.Sound.createAsync({
-        uri: palabraActual.audio_url,
-      });
-      const { sound: soundAlum } = await Audio.Sound.createAsync({
-        uri: recordingUri,
-      });
-
-      soundProfesorRef.current = soundProf;
-      soundAlumnoRef.current = soundAlum;
-
-      await soundProf.playAsync();
-      await soundAlum.playAsync();
-
-      soundProf.setOnPlaybackStatusUpdate((s: any) => {
-        if (s.didJustFinish) {
-          setIsPlayingSuperpuesto(false);
-          soundProf.unloadAsync().catch(() => {});
-          soundAlum.unloadAsync().catch(() => {});
-        }
-      });
-    } catch {
-      setIsPlayingSuperpuesto(false);
-    }
+    // Temporalmente desactivado mientras se trabaja en el login.
+    if (isPlayingSuperpuesto) return;
+    setIsPlayingSuperpuesto(false);
   }
 
   // -----------------------------------------------------------------
   // Grabación – CONFIGURACIÓN CORREGIDA (sin extension en web)
   // -----------------------------------------------------------------
-  const getRecordingOptions = (): Audio.RecordingOptions => {
+  const getRecordingOptions = (): any => {
     if (Platform.OS === 'web') {
       return {
-        android: {}, // requerido por el tipado
-        ios: {},     // requerido por el tipado
+        android: {},
+        ios: {},
         web: {
           mimeType: 'audio/webm',
           bitsPerSecond: 128000,
-          // ⚠️ NO incluir 'extension' aquí, solo es para android/ios
         },
       };
     }
-    // En móvil usamos la preset de alta calidad (ya incluye extensión .m4a o .wav)
-    return Audio.RecordingOptionsPresets.HIGH_QUALITY;
+    return {};
   };
 
   async function startRecording() {
+    // Temporalmente desactivado para evitar usar expo-av.
     if (isActionLocked.current || isRecording) return;
-    try {
-      isActionLocked.current = true;
-      setEvaluationScore(null);
-      setModoAutoevaluacion(false);
-
-      await Audio.requestPermissionsAsync();
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        getRecordingOptions()
-      );
-      recordingRef.current = recording;
-      setIsRecording(true);
-    } catch (err) {
-      console.error('Error al iniciar grabación:', err);
-    } finally {
-      isActionLocked.current = false;
-    }
+    isActionLocked.current = false;
   }
 
   async function stopAndAutoEvaluate() {
-    if (!recordingRef.current || !isRecording) return;
-    try {
-      setIsRecording(false);
-      await recordingRef.current.stopAndUnloadAsync().catch(() => {});
-      const uri = recordingRef.current.getURI();
-
-      if (uri) {
-        setRecordingUri(uri);
-        if (isConnected) {
-          evaluarAudioDirecto(uri);
-        } else {
-          setModoAutoevaluacion(true);
-        }
-      }
-    } catch (err) {
-      console.error('Error al detener grabación:', err);
-    } finally {
-      recordingRef.current = null;
-    }
+    // Temporalmente desactivado para evitar usar expo-av.
+    if (!isRecording) return;
+    setIsRecording(false);
+    setModoAutoevaluacion(true);
   }
 
   // -----------------------------------------------------------------

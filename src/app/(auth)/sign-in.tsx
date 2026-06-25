@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,10 @@ export default function SignInScreen() {
   // ── Modal de recuperación de contraseña ────────────────────────────────────
   const [resetModalVisible, setResetModalVisible] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [resetMessage, setResetMessage] = useState('');
 
@@ -61,6 +65,7 @@ export default function SignInScreen() {
           setError('Ocurrió un inconveniente al evaluar tus credenciales. Por favor, inténtalo de nuevo.');
         }
       } else {
+        await supabase.auth.getSession();
         router.replace('/(app)/(tabs)');
       }
     } catch (err) {
@@ -117,28 +122,104 @@ export default function SignInScreen() {
     setResetLoading(true);
     setResetMessage('');
 
-    // Si es Web, usa la ruta de Render. Si es móvil, usa el esquema nativo.
-    const redirectUrl = Platform.OS === 'web'
-      ? 'https://app-karina.onrender.com/reset-password'
-      : 'appkarina://reset-password';
+    if (Platform.OS === 'web') {
+      try {
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+          trimmedEmail,
+          {
+            redirectTo: 'https://app-karina.onrender.com/reset-password',
+          }
+        );
 
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-        trimmedEmail,
-        {
-          redirectTo: redirectUrl,
+        if (resetError) {
+          setResetMessage('No se pudo enviar el enlace. Verifica el correo ingresado.');
+          console.error('[AUTH] Reset password error:', resetError);
+        } else {
+          setResetMessage('Enlace enviado. Revisa tu correo electrónico.');
         }
-      );
+      } catch (err) {
+        setResetMessage('Error inesperado. Inténtalo de nuevo.');
+        console.error('[AUTH] Reset password exception:', err);
+      } finally {
+        setResetLoading(false);
+      }
+      return;
+    }
 
+    // En móvil, enviamos la recuperación de contraseña y verificamos el OTP localmente.
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
       if (resetError) {
-        setResetMessage('No se pudo enviar el enlace. Verifica el correo ingresado.');
+        setResetMessage('No se pudo enviar el código OTP. Verifica el correo ingresado.');
         console.error('[AUTH] Reset password error:', resetError);
       } else {
-        setResetMessage('Enlace enviado. Revisa tu correo electrónico.');
+        setOtpSent(true);
+        setResetMessage('Código enviado. Ingresa el código y tu nueva contraseña.');
       }
     } catch (err) {
       setResetMessage('Error inesperado. Inténtalo de nuevo.');
       console.error('[AUTH] Reset password exception:', err);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleConfirmOtpReset = async () => {
+    const trimmedEmail = resetEmail.trim();
+    const trimmedOtp = otpCode.trim();
+    const trimmedNewPassword = newPassword.trim();
+    const trimmedConfirmNewPassword = confirmNewPassword.trim();
+
+    if (!trimmedEmail || !trimmedOtp || !trimmedNewPassword || !trimmedConfirmNewPassword) {
+      setResetMessage('Por favor, completa todos los campos del OTP y la nueva contraseña.');
+      return;
+    }
+
+    if (trimmedNewPassword.length < 6) {
+      setResetMessage('La nueva contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    if (trimmedNewPassword !== trimmedConfirmNewPassword) {
+      setResetMessage('Las contraseñas no coinciden.');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetMessage('');
+
+    try {
+      const { error: verifyError } = await supabase.auth.verifyOtp({
+        email: trimmedEmail,
+        token: trimmedOtp,
+        type: 'recovery',
+      });
+
+      if (verifyError) {
+        setResetMessage('OTP inválido o expirado. Solicita uno nuevo.');
+        console.error('[AUTH] Verify OTP error:', verifyError);
+        setResetLoading(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({
+        password: trimmedNewPassword,
+      });
+
+      if (updateError) {
+        setResetMessage('No se pudo actualizar la contraseña. Inténtalo de nuevo.');
+        console.error('[AUTH] Update password error:', updateError);
+      } else {
+        await supabase.auth.getSession();
+        setResetMessage('Contraseña actualizada con éxito. Redirigiendo al inicio de sesión...');
+        setTimeout(() => {
+          setResetModalVisible(false);
+          router.replace('/(auth)/sign-in');
+        }, 1600);
+      }
+    } catch (err) {
+      setResetMessage('Ocurrió un error inesperado al verificar el OTP.');
+      console.error('[AUTH] Confirm OTP exception:', err);
     } finally {
       setResetLoading(false);
     }
@@ -284,6 +365,10 @@ export default function SignInScreen() {
             {/* MÓDULO 6: Olvidó contraseña → abre modal */}
             <Pressable onPress={() => {
               setResetEmail('');
+              setOtpCode('');
+              setNewPassword('');
+              setConfirmNewPassword('');
+              setOtpSent(false);
               setResetMessage('');
               setResetModalVisible(true);
             }}>
@@ -395,6 +480,63 @@ export default function SignInScreen() {
               }}
             />
 
+            {Platform.OS !== 'web' && otpSent && (
+              <>
+                <TextInput
+                  value={otpCode}
+                  onChangeText={setOtpCode}
+                  placeholder="Código OTP de 6 dígitos"
+                  placeholderTextColor="#AAA"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={{
+                    backgroundColor: '#F5F5F5',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    color: '#1A2E1A',
+                    fontSize: 15,
+                    borderWidth: 1,
+                    borderColor: '#E0E0E0',
+                  }}
+                />
+                <TextInput
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="Nueva contraseña"
+                  placeholderTextColor="#AAA"
+                  secureTextEntry
+                  style={{
+                    backgroundColor: '#F5F5F5',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    color: '#1A2E1A',
+                    fontSize: 15,
+                    borderWidth: 1,
+                    borderColor: '#E0E0E0',
+                  }}
+                />
+                <TextInput
+                  value={confirmNewPassword}
+                  onChangeText={setConfirmNewPassword}
+                  placeholder="Repetir nueva contraseña"
+                  placeholderTextColor="#AAA"
+                  secureTextEntry
+                  style={{
+                    backgroundColor: '#F5F5F5',
+                    borderRadius: 12,
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    color: '#1A2E1A',
+                    fontSize: 15,
+                    borderWidth: 1,
+                    borderColor: '#E0E0E0',
+                  }}
+                />
+              </>
+            )}
+
             {resetMessage ? (
               <Text
                 style={{
@@ -409,7 +551,7 @@ export default function SignInScreen() {
             ) : null}
 
             <Pressable
-              onPress={handleResetPassword}
+              onPress={Platform.OS !== 'web' && otpSent ? handleConfirmOtpReset : handleResetPassword}
               disabled={resetLoading}
             >
               <View
@@ -425,13 +567,19 @@ export default function SignInScreen() {
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
                   <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>
-                    Enviar enlace
+                    {Platform.OS !== 'web' && otpSent ? 'Confirmar OTP' : 'Enviar enlace'}
                   </Text>
                 )}
               </View>
             </Pressable>
 
-            <Pressable onPress={() => setResetModalVisible(false)}>
+            <Pressable onPress={() => {
+              setResetModalVisible(false);
+              setOtpSent(false);
+              setOtpCode('');
+              setNewPassword('');
+              setConfirmNewPassword('');
+            }}>
               <Text style={{ color: '#888', fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
                 Cancelar
               </Text>

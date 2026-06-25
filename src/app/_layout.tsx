@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { ActivityIndicator, Platform, View } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PortalHost } from '@rn-primitives/portal';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -7,7 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 
 import { SessionProvider, useSession } from '@/ctx';
-import { DatabaseProvider } from '@/context/DatabaseContext';
+import { DatabaseProvider, useDatabaseContext } from '@/context/DatabaseContext';
 import { LanguageProvider } from '@/context/LanguageContext';
 
 // Inicializar i18n al arrancar la app (efecto de módulo, sin hooks)
@@ -19,6 +19,8 @@ function AuthGuard() {
   const { session, isLoading } = useSession();
   const router = useRouter();
   const segments = useSegments();
+  const { syncRecursos } = useDatabaseContext();
+  const lastSessionId = useRef<string | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -35,6 +37,18 @@ function AuthGuard() {
     }
     // Otherwise, stay on current route
   }, [session, isLoading, segments, router]);
+
+  useEffect(() => {
+    if (isLoading || Platform.OS === 'web' || !session) return;
+
+    const currentUserId = session.user?.id ?? null;
+    if (lastSessionId.current === currentUserId) return;
+    lastSessionId.current = currentUserId;
+
+    syncRecursos().catch((error) => {
+      console.error('[DB] syncRecursos after auth confirmation failed:', error);
+    });
+  }, [session, isLoading, syncRecursos]);
 
   if (isLoading) {
     return (

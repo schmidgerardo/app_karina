@@ -94,8 +94,8 @@ export default function ResetPasswordScreen() {
       } else {
         setIsError(false);
         setMessage('¡Contraseña actualizada con éxito! Redirigiendo...');
-        
-        // Limpiamos la sesión por seguridad tras cambiar clave para forzar un re-login limpio
+
+        await supabase.auth.getSession();
         await supabase.auth.signOut();
 
         setTimeout(() => {
