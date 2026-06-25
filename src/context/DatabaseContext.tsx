@@ -15,6 +15,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { Platform } from 'react-native';          // <--- Importado para detectar el entorno
 import * as SQLite from 'expo-sqlite';
 import * as FileSystem from 'expo-file-system';
 import { supabase } from '@/client/supabase';
@@ -92,7 +93,7 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const initDone = useRef(false);
 
-  // ── Inicializar base de datos local ─────────────────────────────────────────
+  // ── Inicializar base de datos local (HÍBRIDA: web / móvil) ──────────────────
   const initDatabase = useCallback(async () => {
     if (initDone.current) return;
     initDone.current = true;
@@ -100,49 +101,91 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     try {
       const database = await SQLite.openDatabaseAsync('karina_local.db');
 
-      // Crear tablas espejo
-      await database.execAsync(`
-        PRAGMA journal_mode = WAL;
+      // ── Construcción de las tablas según plataforma ──
+      if (Platform.OS === 'web') {
+        // En web: evitamos PRAGMA journal_mode = WAL para no bloquear pestañas concurrentes
+        await database.execAsync(`
+          CREATE TABLE IF NOT EXISTS modules_local (
+            id INTEGER PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            titulo_ingles TEXT,
+            descripcion TEXT,
+            imagen_url TEXT,
+            orden INTEGER DEFAULT 0,
+            synced_at TEXT
+          );
 
-        CREATE TABLE IF NOT EXISTS modules_local (
-          id INTEGER PRIMARY KEY,
-          titulo TEXT NOT NULL,
-          titulo_ingles TEXT,
-          descripcion TEXT,
-          imagen_url TEXT,
-          orden INTEGER DEFAULT 0,
-          synced_at TEXT
-        );
+          CREATE TABLE IF NOT EXISTS words_local (
+            id INTEGER PRIMARY KEY,
+            modulo_id INTEGER NOT NULL,
+            palabra_karina TEXT NOT NULL,
+            significado_espanol TEXT NOT NULL,
+            significado_ingles TEXT,
+            audio_url TEXT,
+            local_audio_path TEXT,
+            imagen_url TEXT,
+            ejemplo_karina TEXT,
+            ejemplo_espanol TEXT,
+            ejemplo_ingles TEXT,
+            synced_at TEXT
+          );
 
-        CREATE TABLE IF NOT EXISTS words_local (
-          id INTEGER PRIMARY KEY,
-          modulo_id INTEGER NOT NULL,
-          palabra_karina TEXT NOT NULL,
-          significado_espanol TEXT NOT NULL,
-          significado_ingles TEXT,
-          audio_url TEXT,
-          local_audio_path TEXT,
-          imagen_url TEXT,
-          ejemplo_karina TEXT,
-          ejemplo_espanol TEXT,
-          ejemplo_ingles TEXT,
-          synced_at TEXT
-        );
+          CREATE TABLE IF NOT EXISTS pending_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            modulo_id INTEGER NOT NULL,
+            score INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            flushed INTEGER DEFAULT 0
+          );
+        `);
+      } else {
+        // En móvil (APK): mantenemos el rendimiento nativo con WAL
+        await database.execAsync(`
+          PRAGMA journal_mode = WAL;
 
-        CREATE TABLE IF NOT EXISTS pending_scores (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id TEXT NOT NULL,
-          modulo_id INTEGER NOT NULL,
-          score INTEGER NOT NULL,
-          created_at TEXT NOT NULL,
-          flushed INTEGER DEFAULT 0
-        );
-      `);
+          CREATE TABLE IF NOT EXISTS modules_local (
+            id INTEGER PRIMARY KEY,
+            titulo TEXT NOT NULL,
+            titulo_ingles TEXT,
+            descripcion TEXT,
+            imagen_url TEXT,
+            orden INTEGER DEFAULT 0,
+            synced_at TEXT
+          );
 
-      // Asegurar que el directorio de audios existe
-      const dirInfo = await FileSystem.getInfoAsync(AUDIO_DIR);
-      if (!dirInfo.exists) {
-        await FileSystem.makeDirectoryAsync(AUDIO_DIR, { intermediates: true });
+          CREATE TABLE IF NOT EXISTS words_local (
+            id INTEGER PRIMARY KEY,
+            modulo_id INTEGER NOT NULL,
+            palabra_karina TEXT NOT NULL,
+            significado_espanol TEXT NOT NULL,
+            significado_ingles TEXT,
+            audio_url TEXT,
+            local_audio_path TEXT,
+            imagen_url TEXT,
+            ejemplo_karina TEXT,
+            ejemplo_espanol TEXT,
+            ejemplo_ingles TEXT,
+            synced_at TEXT
+          );
+
+          CREATE TABLE IF NOT EXISTS pending_scores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            modulo_id INTEGER NOT NULL,
+            score INTEGER NOT NULL,
+            created_at TEXT NOT NULL,
+            flushed INTEGER DEFAULT 0
+          );
+        `);
+      }
+
+      // ── Crear el directorio de audios (si existe la ruta) ──
+      if (AUDIO_DIR) {
+        const dirInfo = await FileSystem.getInfoAsync(AUDIO_DIR);
+        if (!dirInfo.exists) {
+          await FileSystem.makeDirectoryAsync(AUDIO_DIR, { intermediates: true });
+        }
       }
 
       setDb(database);
