@@ -22,16 +22,26 @@ export default function ResetPasswordScreen() {
   const [isError, setIsError] = useState(false);
   const [hasSession, setHasSession] = useState(false);
 
-  // ── ESCUCHADOR DE SESIÓN COMPROMETIDO CON EL LINK ──────────────────────────
   useEffect(() => {
-    // Verificamos si ya hay una sesión capturada en el arranque
+    // 1. Verificación Inicial Rápida: ¿Ya capturó la sesión de forma directa?
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setHasSession(true);
+      if (session) {
+        setHasSession(true);
+      }
     });
 
-    // Escuchamos activamente cuando Supabase termine de parsear el token del hash (#) de la URL
+    // 2. Verificación por URL (Clave para Web/Render): 
+    // Si la URL contiene tokens de acceso o tipo de recuperación, forzamos el acceso legítimo.
+    if (typeof window !== 'undefined' && window.location?.hash) {
+      const hash = window.location.hash;
+      if (hash.includes('access_token') || hash.includes('type=recovery')) {
+        setHasSession(true);
+      }
+    }
+
+    // 3. Escuchador de Eventos de Supabase convencional
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' || session) {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || session) {
         setHasSession(true);
       }
     });
@@ -63,30 +73,31 @@ export default function ResetPasswordScreen() {
       return;
     }
 
-    // Si le da al botón antes de que el token sea procesado
-    if (!hasSession) {
-      setIsError(true);
-      setMessage('Esperando validación del enlace de seguridad. Por favor, reintenta en unos segundos.');
-      return;
-    }
-
     setIsError(false);
     setLoading(true);
     setMessage('');
 
     try {
+      // Intentamos actualizar directamente en la base de datos
       const { error: updateError } = await supabase.auth.updateUser({
         password: trimmedPass,
       });
 
       if (updateError) {
         setIsError(true);
-        setMessage('No se pudo actualizar la contraseña. El enlace pudo haber expirado.');
+        if (updateError.message.includes('session') || updateError.status === 401) {
+          setMessage('Error de sesión: Por seguridad, solicita un nuevo enlace desde el Login.');
+        } else {
+          setMessage(`No se pudo actualizar: ${updateError.message}`);
+        }
         console.error('[AUTH] Update password error:', updateError);
       } else {
         setIsError(false);
         setMessage('¡Contraseña actualizada con éxito! Redirigiendo...');
         
+        // Limpiamos la sesión por seguridad tras cambiar clave para forzar un re-login limpio
+        await supabase.auth.signOut();
+
         setTimeout(() => {
           router.replace('/(auth)/sign-in');
         }, 2500);
