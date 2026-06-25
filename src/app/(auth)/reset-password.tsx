@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,6 +20,26 @@ export default function ResetPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isError, setIsError] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+
+  // ── ESCUCHADOR DE SESIÓN COMPROMETIDO CON EL LINK ──────────────────────────
+  useEffect(() => {
+    // Verificamos si ya hay una sesión capturada en el arranque
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setHasSession(true);
+    });
+
+    // Escuchamos activamente cuando Supabase termine de parsear el token del hash (#) de la URL
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || session) {
+        setHasSession(true);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleUpdatePassword = async () => {
     const trimmedPass = password.trim();
@@ -43,12 +63,18 @@ export default function ResetPasswordScreen() {
       return;
     }
 
+    // Si le da al botón antes de que el token sea procesado
+    if (!hasSession) {
+      setIsError(true);
+      setMessage('Esperando validación del enlace de seguridad. Por favor, reintenta en unos segundos.');
+      return;
+    }
+
     setIsError(false);
     setLoading(true);
     setMessage('');
 
     try {
-      // Supabase asocia automáticamente la sesión del token que venía en el enlace
       const { error: updateError } = await supabase.auth.updateUser({
         password: trimmedPass,
       });
@@ -61,10 +87,9 @@ export default function ResetPasswordScreen() {
         setIsError(false);
         setMessage('¡Contraseña actualizada con éxito! Redirigiendo...');
         
-        // Espera 2 segundos para que el usuario lea el mensaje y lo manda al login
         setTimeout(() => {
           router.replace('/(auth)/sign-in');
-        }, 2000);
+        }, 2500);
       }
     } catch (err) {
       setIsError(true);
@@ -85,7 +110,6 @@ export default function ResetPasswordScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Banner Superior */}
         <Image
           source={require('@/../assets/image.png')}
           style={{ width: '100%', height: 220 }}
@@ -149,7 +173,6 @@ export default function ResetPasswordScreen() {
               />
             </View>
 
-            {/* Mostrar / Ocultar Claves */}
             <Pressable 
               onPress={() => setShowPassword(!showPassword)}
               style={{ alignSelf: 'flex-end' }}
@@ -159,14 +182,12 @@ export default function ResetPasswordScreen() {
               </Text>
             </Pressable>
 
-            {/* Mensajes de feedback */}
             {message ? (
               <Text style={{ color: isError ? '#FF6B6B' : '#81C784', fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
                 {message}
               </Text>
             ) : null}
 
-            {/* Botón de Confirmación */}
             <Pressable onPress={handleUpdatePassword} disabled={loading}>
               <View
                 style={{
@@ -188,7 +209,6 @@ export default function ResetPasswordScreen() {
               </View>
             </Pressable>
 
-            {/* Volver al Login */}
             <Pressable onPress={() => router.replace('/(auth)/sign-in')}>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textAlign: 'center', textDecorationLine: 'underline', marginTop: 10 }}>
                 Volver al inicio de sesión
