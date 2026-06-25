@@ -42,7 +42,8 @@
           "photosPermission": "Permitir a $(PRODUCT_NAME) acceder a la galería para seleccionar una foto de perfil"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      "expo-web-browser"
     ],
     "router": {
       "root": "src"
