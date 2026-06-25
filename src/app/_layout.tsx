@@ -22,25 +22,24 @@ function AuthGuard() {
   const { syncRecursos } = useDatabaseContext();
   const lastSessionId = useRef<string | null>(null);
 
+  // --- NUEVO useEffect (reemplazo) ---
   useEffect(() => {
     if (isLoading) return;
 
-    const inAppGroup = segments[0] === '(app)';
     const inAuthGroup = segments[0] === '(auth)';
-    
-    // Identificamos si el usuario está exactamente en la pantalla de reset-password
-    const isResettingPassword = segments[0] === '(auth)' && segments[1] === 'reset-password';
+    const isResettingPassword = segments[1] === 'reset-password'; // segments[1] porque el 0 es (auth)
 
     if (!session && !inAuthGroup) {
-      // No hay sesión y trata de entrar a la app -> pa' fuera
       router.replace('/(auth)/sign-in');
-    } else if (session && !inAppGroup && !isResettingPassword) {
-      // HAY sesión, no está en la app, Y NO ESTÁ CAMBIANDO CONTRASEÑA -> mándalo al home
-      // La magia es el !isResettingPassword. Si está ahí, lo dejamos quieto.
-      router.replace('/(app)/(tabs)');
+    } else if (session && !isResettingPassword) {
+      // Si hay sesión y NO estamos reseteando clave, vamos adentro
+      if (segments[0] !== '(app)') {
+        router.replace('/(app)/(tabs)');
+      }
     }
   }, [session, isLoading, segments, router]);
 
+  // --- Segundo useEffect (sin cambios) ---
   useEffect(() => {
     if (isLoading || Platform.OS === 'web' || !session) return;
 
@@ -79,9 +78,7 @@ export default function RootLayout() {
         backgroundColor={colorScheme === 'dark' ? '#081408' : '#F9F6F0'}
       />
       <SessionProvider>
-        {/* Módulo 1: Motor SQLite offline disponible globalmente */}
         <DatabaseProvider>
-          {/* Módulo 2: Idioma global sincronizado con Supabase */}
           <LanguageProvider>
             <AuthGuard />
           </LanguageProvider>
