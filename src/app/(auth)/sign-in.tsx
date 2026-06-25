@@ -68,7 +68,6 @@ export default function SignInScreen() {
     setLoadingGoogle(true);
 
     try {
-      // Creamos el redirect dinámico
       const redirectUrl = Linking.createURL('/(auth)/sign-in');
 
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -82,7 +81,6 @@ export default function SignInScreen() {
       if (oauthError) throw oauthError;
 
       if (Platform.OS !== 'web' && data?.url) {
-        // En móvil abrimos el navegador y esperamos el resultado
         const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
         if (result.type === 'success') {
           // El listener en ctx.tsx procesará la sesión
@@ -102,7 +100,6 @@ export default function SignInScreen() {
     }
     setResetLoading(true);
     
-    // URL de retorno: si es web usa la URL real, si es móvil usa el scheme
     const resetRedirect = Platform.OS === 'web' 
       ? 'https://app-karina.onrender.com/reset-password'
       : Linking.createURL('/reset-password');
@@ -125,40 +122,130 @@ export default function SignInScreen() {
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: '#1B5E20' }}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
         <Image source={require('@/../assets/image.png')} style={{ width: '100%', height: 220 }} contentFit="cover" />
+        
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
           <Text style={{ fontSize: 28, fontWeight: '900', color: '#FFFFFF', textAlign: 'center' }}>KARIÑA</Text>
           
           <View style={{ marginTop: 24, gap: 14 }}>
-            <TextInput value={email} onChangeText={setEmail} placeholder="Correo" placeholderTextColor="#AAA" style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 16, color: '#FFF' }} autoCapitalize="none" />
-            <TextInput value={password} onChangeText={setPassword} placeholder="Contraseña" placeholderTextColor="#AAA" secureTextEntry={!showPassword} style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, padding: 16, color: '#FFF' }} />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Correo"
+              placeholderTextColor="#AAA"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: 12,
+                padding: 16,
+                color: '#FFF',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)'
+              }}
+              autoCapitalize="none"
+            />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Contraseña"
+              placeholderTextColor="#AAA"
+              secureTextEntry={!showPassword}
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.1)',
+                borderRadius: 12,
+                padding: 16,
+                color: '#FFF',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)'
+              }}
+            />
             
-            <Pressable onPress={() => setAgreed(!agreed)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={{ width: 20, height: 20, borderWidth: 1, borderColor: '#FFF', backgroundColor: agreed ? '#F59E0B' : 'transparent' }} />
-              <Text style={{ color: '#FFF', fontSize: 12 }}>Acepto términos y condiciones</Text>
+            <Pressable onPress={() => setAgreed(!agreed)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 5 }}>
+              <View style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                borderWidth: 2,
+                borderColor: agreed ? '#F59E0B' : '#FFF',
+                backgroundColor: agreed ? '#F59E0B' : 'transparent',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}>
+                {agreed && <Text style={{ color: '#1B5E20', fontWeight: 'bold' }}>✓</Text>}
+              </View>
+              <Text style={{ color: '#FFF', fontSize: 13, flex: 1 }}>Acepto términos y condiciones</Text>
             </Pressable>
 
-            {error ? <Text style={{ color: '#FF6B6B', textAlign: 'center' }}>{error}</Text> : null}
+            {error ? <Text style={{ color: '#FF6B6B', textAlign: 'center', fontSize: 13 }}>{error}</Text> : null}
 
-            <Pressable onPress={handleLogin} disabled={loading} style={{ backgroundColor: '#F59E0B', padding: 16, borderRadius: 12, alignItems: 'center' }}>
-              {loading ? <ActivityIndicator color="#1B5E20" /> : <Text style={{ fontWeight: '800' }}>Entrar</Text>}
+            <Pressable
+              onPress={handleLogin}
+              disabled={loading}
+              style={{
+                backgroundColor: '#F59E0B',
+                padding: 18,
+                borderRadius: 14,
+                alignItems: 'center',
+                marginTop: 10
+              }}
+            >
+              {loading ? <ActivityIndicator color="#1B5E20" /> : <Text style={{ color: '#1B5E20', fontWeight: '900', fontSize: 16 }}>Entrar</Text>}
             </Pressable>
 
-            <Pressable onPress={handleGoogleLogin} disabled={loadingGoogle} style={{ backgroundColor: '#FFF', padding: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 10 }}>
-              {loadingGoogle ? <ActivityIndicator color="#1B5E20" /> : <Text style={{ color: '#1B5E20', fontWeight: '700' }}>Entrar con Google</Text>}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+              <Text style={{ color: 'rgba(255,255,255,0.5)' }}>o</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
+            </View>
+
+            <Pressable
+              onPress={handleGoogleLogin}
+              disabled={loadingGoogle}
+              style={{
+                backgroundColor: '#FFF',
+                padding: 16,
+                borderRadius: 14,
+                alignItems: 'center',
+                flexDirection: 'row',
+                justifyContent: 'center',
+                gap: 12
+              }}
+            >
+              {loadingGoogle ? <ActivityIndicator color="#1B5E20" /> : (
+                <>
+                  <Text style={{ fontSize: 18 }}>G</Text> 
+                  <Text style={{ color: '#1B5E20', fontWeight: '700' }}>Continuar con Google</Text>
+                </>
+              )}
             </Pressable>
 
-            <Pressable onPress={() => setResetModalVisible(true)}>
-              <Text style={{ color: '#FFF', textAlign: 'center', textDecorationLine: 'underline', marginTop: 10 }}>¿Olvidó su contraseña?</Text>
-            </Pressable>
+            <View style={{ marginTop: 20, gap: 15 }}>
+              <Pressable onPress={() => setResetModalVisible(true)}>
+                <Text style={{ color: '#F59E0B', textAlign: 'center', fontSize: 13, fontWeight: '600' }}>
+                  ¿Olvidaste tu contraseña?
+                </Text>
+              </Pressable>
+
+              <Pressable onPress={() => router.push('/(auth)/sign-up')}>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+                  <Text style={{ color: '#FFF', opacity: 0.8 }}>¿No tienes cuenta?</Text>
+                  <Text style={{ color: '#F59E0B', fontWeight: 'bold' }}>Regístrate</Text>
+                </View>
+              </Pressable>
+            </View>
           </View>
         </View>
       </ScrollView>
 
+      {/* Modal de recuperación de contraseña (sin cambios) */}
       <Modal visible={resetModalVisible} transparent animationType="slide">
         <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' }}>
           <View style={{ backgroundColor: '#FFF', padding: 30, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
             <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 10 }}>Recuperar Contraseña</Text>
-            <TextInput value={resetEmail} onChangeText={setResetEmail} placeholder="Tu correo" style={{ borderBottomWidth: 1, padding: 10, marginBottom: 20 }} />
+            <TextInput
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              placeholder="Tu correo"
+              style={{ borderBottomWidth: 1, padding: 10, marginBottom: 20 }}
+            />
             {resetMessage ? <Text style={{ color: resetSuccess ? 'green' : 'red', marginBottom: 10 }}>{resetMessage}</Text> : null}
             <Pressable onPress={handleResetPassword} style={{ backgroundColor: '#1B5E20', padding: 15, borderRadius: 10, alignItems: 'center' }}>
               <Text style={{ color: '#FFF' }}>Enviar Enlace</Text>
