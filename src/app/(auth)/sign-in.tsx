@@ -4,6 +4,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Modal,
+  Platform, // <--- Importado para detectar el entorno
   Pressable,
   ScrollView,
   Text,
@@ -69,7 +70,7 @@ export default function SignInScreen() {
     }
   };
 
-  // ── MÓDULO 6: Login con Google OAuth ──────────────────────────────────────
+  // ── MÓDULO 6: Login con Google OAuth Híbrido ──────────────────────────────
   const handleGoogleLogin = async () => {
     if (!agreed) {
       setError('Debes aceptar los términos y condiciones para continuar.');
@@ -79,11 +80,16 @@ export default function SignInScreen() {
     setError('');
     setLoadingGoogle(true);
 
+    // Si es Web, usa la URL de Render. Si es móvil, usa el esquema nativo.
+    const redirectUrl = Platform.OS === 'web'
+      ? 'https://app-karina.onrender.com/'
+      : 'appkarina://';
+
     try {
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: 'com.schmidgerardo.appkarina://',
+          redirectTo: redirectUrl,
         },
       });
 
@@ -91,7 +97,6 @@ export default function SignInScreen() {
         setError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
         console.error('[AUTH] Google OAuth error:', oauthError);
       }
-      // La redirección es manejada automáticamente por Supabase + deep link
     } catch (err) {
       setError('Error inesperado al conectar con Google.');
       console.error('[AUTH] Google OAuth exception:', err);
@@ -100,7 +105,7 @@ export default function SignInScreen() {
     }
   };
 
-  // ── MÓDULO 6: Recuperar contraseña ────────────────────────────────────────
+  // ── MÓDULO 6: Recuperar contraseña Híbrido ────────────────────────────────
   const handleResetPassword = async () => {
     const trimmedEmail = resetEmail.trim();
 
@@ -112,11 +117,16 @@ export default function SignInScreen() {
     setResetLoading(true);
     setResetMessage('');
 
+    // Si es Web, usa la ruta de Render. Si es móvil, usa el esquema nativo.
+    const redirectUrl = Platform.OS === 'web'
+      ? 'https://app-karina.onrender.com/reset-password'
+      : 'appkarina://reset-password';
+
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         trimmedEmail,
         {
-          redirectTo: 'com.schmidgerardo.appkarina://reset-password',
+          redirectTo: redirectUrl,
         }
       );
 

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Kariña - Idioma Indígena",
     "slug": "karina-idioma-indigena",
+    "scheme": "appkarina",
     "version": "1.0.10",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
