@@ -27,15 +27,18 @@ function AuthGuard() {
 
     const inAppGroup = segments[0] === '(app)';
     const inAuthGroup = segments[0] === '(auth)';
+    
+    // Identificamos si el usuario está exactamente en la pantalla de reset-password
+    const isResettingPassword = segments[0] === '(auth)' && segments[1] === 'reset-password';
 
     if (!session && !inAuthGroup) {
-      // Si no está logueado y está en la raíz o en una ruta protegida → mandar a login
+      // No hay sesión y trata de entrar a la app -> pa' fuera
       router.replace('/(auth)/sign-in');
-    } else if (session && !inAppGroup) {
-      // Si ya está logueado y está afuera del grupo autenticado → mandar al home interno
+    } else if (session && !inAppGroup && !isResettingPassword) {
+      // HAY sesión, no está en la app, Y NO ESTÁ CAMBIANDO CONTRASEÑA -> mándalo al home
+      // La magia es el !isResettingPassword. Si está ahí, lo dejamos quieto.
       router.replace('/(app)/(tabs)');
     }
-    // Otherwise, stay on current route
   }, [session, isLoading, segments, router]);
 
   useEffect(() => {
