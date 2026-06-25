@@ -6,6 +6,8 @@ import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-g
 import Animated, { useAnimatedProps, useSharedValue, runOnJS } from 'react-native-reanimated';
 import Svg, { Line } from 'react-native-svg';
 import { supabase } from '@/client/supabase';
+import { useSession } from '@/ctx';
+import { useDatabaseContext } from '@/context/DatabaseContext';
 
 interface Word {
   id: string;
@@ -23,8 +25,15 @@ interface WordBox {
 
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 
+// ─── Constantes de juego ──────────────────────────────────────────────────────
+const TOTAL_ROUNDS = 2;        // Módulo 3: máximo 2 rondas
+const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
+const XP_PER_MATCH = 10;       // Módulo 5: XP por par correcto
+
 export default function JuegoUnirScreen() {
   const router = useRouter();
+  const { session } = useSession();
+  const { enqueuePendingScore } = useDatabaseContext();
   const { modulo_id } = useLocalSearchParams();
 
   // Parse and normalize modulo_id (could be number or uuid string)
@@ -43,7 +52,10 @@ export default function JuegoUnirScreen() {
 
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [totalMatches, setTotalMatches] = useState(0);
+  const [totalPossible, setTotalPossible] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const [karinaList, setKarinaList] = useState<string[]>([]);
@@ -120,6 +132,8 @@ export default function JuegoUnirScreen() {
 
     // Get 4 random words from pool for this round
     const selected = shuffleArray([...wordsPool]).slice(0, 4);
+    // Acumular el total posible de emparejamientos
+    setTotalPossible(prev => prev + selected.length);
     setCurrentWords(selected);
     setMatchedKarina(new Set());
     setMatchedEspanol(new Set());
@@ -163,12 +177,57 @@ export default function JuegoUnirScreen() {
   };
 
   function nextRound() {
-    if (round >= 3) {
+    // Módulo 3: máximo TOTAL_ROUNDS rondas
+    if (round >= TOTAL_ROUNDS) {
       setGameOver(true);
+      handleSaveProgress();
       return;
     }
     setRound(r => r + 1);
     startNewRound(allWords, round + 1);
+  }
+
+  // ── Módulo 5: Guardar XP con umbral del 70% ──────────────────────────────────
+  async function handleSaveProgress() {
+    if (parsedModuloId === null || !session?.user?.id) return;
+
+    const userId = session.user.id;
+    const xpGanado = score; // score acumulado = matches * XP_PER_MATCH
+
+    try {
+      setSavingProgress(true);
+      const { data: existing } = await supabase
+        .from('module_progress')
+        .select('id, xp')
+        .eq('user_id', userId)
+        .eq('modulo_id', parsedModuloId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('module_progress')
+          .update({
+            xp: (existing.xp || 0) + xpGanado,
+            completed: true,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('module_progress').insert({
+          user_id: userId,
+          modulo_id: parsedModuloId,
+          xp: xpGanado,
+          completed: true,
+          completed_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      // Sin conexión → encolar en SQLite (Módulo 1)
+      console.warn('[UNIR] Sin conexión, encolando score offline:', err);
+      await enqueuePendingScore(userId, Number(parsedModuloId), xpGanado);
+    } finally {
+      setSavingProgress(false);
+    }
   }
 
   function showFeedback(message: string, type: 'success' | 'error') {
@@ -188,17 +247,20 @@ export default function JuegoUnirScreen() {
     }
 
     if (pair.significado_espanol === espanolWord) {
-      showFeedback('✅ ¡Correcto! +10 puntos', 'success');
+      showFeedback('✅ ¡Correcto! +' + XP_PER_MATCH + ' puntos', 'success');
       setMatchedKarina(prev => new Set([...prev, karinaWord]));
       setMatchedEspanol(prev => new Set([...prev, espanolWord]));
       setMatchedPairs(prev => [...prev, { karina: karinaWord, espanol: espanolWord }]);
-      setScore(s => s + 10);
+      setScore(s => s + XP_PER_MATCH);
+      setTotalMatches(m => m + 1);
       lineColor.value = '#4CAF50';
 
       if (matchedKarina.size + 1 === currentWords.length) {
         setTimeout(() => {
-          if (round >= 3) {
+          // Módulo 3: usar TOTAL_ROUNDS
+          if (round >= TOTAL_ROUNDS) {
             setGameOver(true);
+            handleSaveProgress();
           } else {
             nextRound();
           }
@@ -349,18 +411,66 @@ export default function JuegoUnirScreen() {
   }
 
   if (gameOver) {
+    // Módulo 5: calcular porcentaje de aciertos
+    const pctAciertos = totalPossible > 0 ? totalMatches / totalPossible : 0;
+    const passed = pctAciertos >= XP_THRESHOLD;
+    const xpGanado = passed ? score : 0;
+
     return (
       <SafeAreaView style={styles.victoryContainer}>
         <View style={styles.victoryCard}>
-          <Text style={styles.victoryEmoji}>🎉</Text>
-          <Text style={styles.victoryTitle}>¡Desafío Completado!</Text>
-          <Text style={styles.victorySubtitle}>Puntuación obtenida</Text>
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreText}>⭐ {score} pts</Text>
-          </View>
-          <Pressable onPress={handleGoToOptions} style={styles.victoryButton}>
-            <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
-          </Pressable>
+          {passed ? (
+            <>
+              <Text style={styles.victoryEmoji}>🎉</Text>
+              <Text style={styles.victoryTitle}>¡Desafío Completado!</Text>
+              <Text style={styles.victorySubtitle}>Puntuación obtenida</Text>
+              <View style={styles.scoreBadge}>
+                <Text style={styles.scoreText}>⭐ {score} pts</Text>
+              </View>
+              {parsedModuloId !== null && (
+                <View style={[styles.scoreBadge, { backgroundColor: '#E8F5E9', borderColor: '#81C784', marginTop: 8 }]}>
+                  <Text style={[styles.scoreText, { color: '#2E7D32' }]}>+{xpGanado} XP</Text>
+                </View>
+              )}
+              <Pressable
+                onPress={handleGoToOptions}
+                style={[styles.victoryButton, savingProgress && { opacity: 0.7 }]}
+                disabled={savingProgress}
+              >
+                {savingProgress
+                  ? <ActivityIndicator color="#FFFFFF" size="small" />
+                  : <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
+                }
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.victoryEmoji}>😓</Text>
+              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>Sección no superada</Text>
+              <Text style={[styles.victorySubtitle, { textAlign: 'center', marginTop: 8 }]}>
+                Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!
+              </Text>
+              <View style={[styles.scoreBadge, { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A', marginTop: 16 }]}>
+                <Text style={[styles.scoreText, { color: '#C62828' }]}>
+                  {totalMatches} / {totalPossible} correctos ({Math.round(pctAciertos * 100)}%)
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  // Reiniciar el juego
+                  setGameOver(false);
+                  setRound(1);
+                  setScore(0);
+                  setTotalMatches(0);
+                  setTotalPossible(0);
+                  startNewRound(allWords, 1);
+                }}
+                style={[styles.victoryButton, { backgroundColor: '#C62828' }]}
+              >
+                <Text style={styles.victoryButtonText}>Reintentar</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -371,13 +481,15 @@ export default function JuegoUnirScreen() {
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          {/* Módulo 4: router.replace para destruir pila de navegación */}
+          <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
             <Text style={styles.backButtonText}>← Salir</Text>
           </Pressable>
           <Text style={styles.headerTitle}>🔗 Une las palabras</Text>
           <View style={styles.headerStats}>
             <View style={styles.statBadge}>
-              <Text style={styles.statLabel}>Ronda {round} de 3</Text>
+              {/* Módulo 3: mostrar total de rondas actualizado */}
+              <Text style={styles.statLabel}>Ronda {round} de {TOTAL_ROUNDS}</Text>
             </View>
             <View style={styles.statBadge}>
               <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>

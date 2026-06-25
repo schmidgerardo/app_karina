@@ -5,6 +5,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
+import { useDatabaseContext } from '@/context/DatabaseContext';
+
+// ─── Constantes de juego ──────────────────────────────────────────────────────
+const TOTAL_ROUNDS = 2;        // Módulo 3: máximo 2 rondas
+const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
+const XP_PER_CORRECT = 50;    // Módulo 5: XP por palabra correcta
 
 interface Word {
   id: string;
@@ -23,6 +29,7 @@ export default function JuegoDictadoScreen() {
   const router = useRouter();
   const { modulo_id } = useLocalSearchParams();
   const { session } = useSession();
+  const { enqueuePendingScore } = useDatabaseContext();
 
   // Parse and normalize modulo_id
   const parsedModuloId = modulo_id
@@ -40,6 +47,7 @@ export default function JuegoDictadoScreen() {
   
   const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
   const [roundChecked, setRoundChecked] = useState(false);
   const [roundCorrect, setRoundCorrect] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -174,7 +182,8 @@ export default function JuegoDictadoScreen() {
     setRoundChecked(true);
 
     if (correct) {
-      setScore(s => s + 50);
+      setScore(s => s + XP_PER_CORRECT);
+      setCorrectCount(c => c + 1);
       setTimeout(() => {
         handleNextStep();
       }, 1500);
@@ -182,7 +191,8 @@ export default function JuegoDictadoScreen() {
   };
 
   const handleNextStep = () => {
-    if (round >= 3) {
+    // Módulo 3: usar TOTAL_ROUNDS en lugar de 3
+    if (round >= TOTAL_ROUNDS) {
       // Trigger Game Completion & database update
       setGameOver(true);
       if (parsedModuloId !== null) {
@@ -198,10 +208,22 @@ export default function JuegoDictadoScreen() {
   async function saveProgressToDatabase() {
     if (!session?.user?.id || parsedModuloId === null) return;
 
+    const userId = session.user.id;
+
+    // Módulo 5: Calcular umbral del 70% (correctCount sobre TOTAL_ROUNDS)
+    // correctCount se actualiza en handleCheck antes de que se llame a esta función
+    // Usamos score como proxy: score / (TOTAL_ROUNDS * XP_PER_CORRECT)
+    const pctAciertos = score / (TOTAL_ROUNDS * XP_PER_CORRECT);
+    if (pctAciertos < XP_THRESHOLD) {
+      // No supera el umbral, no guardar XP
+      console.log(`[DICTADO] Umbral no superado: ${Math.round(pctAciertos * 100)}% < 70%`);
+      return;
+    }
+
+    const dynamicXp = score;
+
     try {
       setSavingProgress(true);
-      const userId = session.user.id;
-      const dynamicXp = score + (roundCorrect ? 50 : 0); // dynamically sum points
 
       // Fetch existing progress
       const { data: existingProgress, error: fetchError } = await supabase
@@ -234,7 +256,9 @@ export default function JuegoDictadoScreen() {
         });
       }
     } catch (e) {
-      console.error('Excepción al guardar progreso:', e);
+      // Sin conexión → encolar en SQLite (Módulo 1)
+      console.warn('[DICTADO] Sin conexión, encolando score offline:', e);
+      await enqueuePendingScore(userId, Number(parsedModuloId), dynamicXp);
     } finally {
       setSavingProgress(false);
     }
@@ -276,38 +300,73 @@ export default function JuegoDictadoScreen() {
   }
 
   if (gameOver) {
-    const finalXp = score;
+    // Módulo 5: calcular porcentaje de aciertos
+    const pctAciertos = TOTAL_ROUNDS > 0 ? score / (TOTAL_ROUNDS * XP_PER_CORRECT) : 0;
+    const passed = pctAciertos >= XP_THRESHOLD;
+
     return (
       <SafeAreaView style={styles.victoryContainer}>
         <View style={styles.victoryCard}>
-          <Text style={styles.victoryEmoji}>🏆</Text>
-          <Text style={styles.victoryTitle}>¡Felicitaciones!</Text>
-          <Text style={styles.victorySubtitle}>Completaste el flujo de prácticas</Text>
+          {passed ? (
+            <>
+              <Text style={styles.victoryEmoji}>🏆</Text>
+              <Text style={styles.victoryTitle}>¡Felicitaciones!</Text>
+              <Text style={styles.victorySubtitle}>Completaste el flujo de prácticas</Text>
 
-          <View style={styles.rewardsContainer}>
-            <View style={styles.rewardBox}>
-              <Text style={styles.rewardValue}>⭐ {score}</Text>
-              <Text style={styles.rewardLabel}>Puntos</Text>
-            </View>
-            {parsedModuloId !== null && (
-              <View style={styles.rewardBox}>
-                <Text style={[styles.rewardValue, { color: '#2E7D32' }]}>+{finalXp}</Text>
-                <Text style={styles.rewardLabel}>XP Ganado</Text>
+              <View style={styles.rewardsContainer}>
+                <View style={styles.rewardBox}>
+                  <Text style={styles.rewardValue}>⭐ {score}</Text>
+                  <Text style={styles.rewardLabel}>Puntos</Text>
+                </View>
+                {parsedModuloId !== null && (
+                  <View style={styles.rewardBox}>
+                    <Text style={[styles.rewardValue, { color: '#2E7D32' }]}>+{score}</Text>
+                    <Text style={styles.rewardLabel}>XP Ganado</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
 
-          <Pressable
-            onPress={handleFinishGame}
-            style={styles.victoryButton}
-            disabled={savingProgress}
-          >
-            {savingProgress ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.victoryButtonText}>Finalizar práctica</Text>
-            )}
-          </Pressable>
+              <Pressable
+                onPress={handleFinishGame}
+                style={styles.victoryButton}
+                disabled={savingProgress}
+              >
+                {savingProgress ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.victoryButtonText}>Finalizar práctica</Text>
+                )}
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.victoryEmoji}>😓</Text>
+              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>Sección no superada</Text>
+              <Text style={[styles.victorySubtitle, { textAlign: 'center', marginTop: 8 }]}>
+                Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!
+              </Text>
+              <View style={[styles.rewardsContainer]}>
+                <View style={[styles.rewardBox, { borderColor: '#EF9A9A', backgroundColor: '#FFEBEE' }]}>
+                  <Text style={[styles.rewardValue, { color: '#C62828' }]}>
+                    {Math.round(pctAciertos * 100)}%
+                  </Text>
+                  <Text style={[styles.rewardLabel, { color: '#C62828' }]}>Aciertos</Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setGameOver(false);
+                  setRound(1);
+                  setScore(0);
+                  setCorrectCount(0);
+                  startRound(allWords, 1);
+                }}
+                style={[styles.victoryButton, { backgroundColor: '#C62828' }]}
+              >
+                <Text style={styles.victoryButtonText}>Reintentar</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -319,13 +378,15 @@ export default function JuegoDictadoScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        {/* Módulo 4: router.replace para destruir pila de navegación */}
+        <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Salir</Text>
         </Pressable>
         <Text style={styles.headerTitle}>✍️ Dictado Kariña</Text>
         <View style={styles.headerStats}>
           <View style={styles.statBadge}>
-            <Text style={styles.statLabel}>Palabra {round} de 3</Text>
+            {/* Módulo 3: mostrar TOTAL_ROUNDS */}
+            <Text style={styles.statLabel}>Palabra {round} de {TOTAL_ROUNDS}</Text>
           </View>
           <View style={styles.statBadge}>
             <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>

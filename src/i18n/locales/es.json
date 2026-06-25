@@ -1,0 +1,99 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "modules": "Módulos",
+    "dictionary": "Diccionario",
+    "games": "Juegos",
+    "profile": "Perfil"
+  },
+  "auth": {
+    "email": "Correo",
+    "password": "Contraseña",
+    "enter": "Entrar",
+    "login_google": "Entrar con Google",
+    "forgot_password": "¿Olvidó su contraseña?",
+    "no_account": "¿No tienes cuenta?",
+    "register": "Regístrate",
+    "terms": "Acepto los Términos de Servicio y la Política de Privacidad",
+    "email_placeholder": "Tu correo electrónico",
+    "password_placeholder": "Tu contraseña",
+    "show": "VER",
+    "hide": "OCULTAR",
+    "reset_title": "Recuperar Contraseña",
+    "reset_description": "Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.",
+    "reset_send": "Enviar enlace",
+    "reset_success": "Enlace enviado. Revisa tu correo.",
+    "cancel": "Cancelar"
+  },
+  "errors": {
+    "empty_fields": "Por favor, ingresa tu email y contraseña.",
+    "accept_terms": "Debes aceptar los términos y condiciones para continuar.",
+    "invalid_credentials": "El usuario o la contraseña no coinciden con nuestros registros.",
+    "generic_auth": "Ocurrió un inconveniente. Por favor, inténtalo de nuevo.",
+    "unexpected": "Error inesperado. Inténtalo de nuevo.",
+    "empty_email": "Por favor, ingresa tu correo electrónico."
+  },
+  "games": {
+    "exit": "← Salir",
+    "loading": "Cargando desafío...",
+    "insufficient_words": "No hay suficientes palabras",
+    "insufficient_words_desc": "Este módulo no cuenta con palabras suficientes para iniciar este minijuego (se requieren al menos 4).",
+    "back_menu": "Volver al menú",
+    "retry": "Reintentar",
+    "score": "Puntos",
+    "xp_earned": "XP Ganado",
+    "not_passed": "Sección no superada",
+    "not_passed_desc": "Necesitas al menos 70% de aciertos para avanzar. ¡Sigue practicando!",
+    "next_game": "Siguiente Juego",
+    "finish": "Finalizar práctica",
+    "correct": "¡Excelente trabajo! ¡Correcto!",
+    "round_of": "Ronda {{current}} de {{total}}",
+    "word_of": "Palabra {{current}} de {{total}}",
+    "successes_of": "Aciertos: {{current}} de {{total}}"
+  },
+  "unir": {
+    "title": "🔗 Une las palabras",
+    "instructions": "Arrastra de Kariña a Español o toca ambos para unirlos",
+    "victory_title": "¡Desafío Completado!",
+    "victory_subtitle": "Puntuación obtenida"
+  },
+  "opciones": {
+    "title": "🎧 Escucha y elige",
+    "instructions": "Escucha el audio y selecciona la traducción Kariña correcta",
+    "victory_title": "¡Buen trabajo!",
+    "victory_subtitle": "Respondiste correctamente"
+  },
+  "dictado": {
+    "title": "✍️ Dictado Kariña",
+    "instructions": "Escucha el audio y ordena las letras para escribir la palabra",
+    "victory_title": "¡Felicitaciones!",
+    "victory_subtitle": "Completaste el flujo de prácticas"
+  },
+  "profile": {
+    "title": "Mi Perfil",
+    "total_xp": "XP Total",
+    "modules_completed": "Módulos Completados",
+    "games_played": "Juegos",
+    "edit": "Editar Perfil",
+    "logout": "Cerrar Sesión",
+    "language_toggle": "🇪🇸 ES → 🇬🇧 EN",
+    "sync": "Sincronizar Contenido",
+    "syncing": "Sincronizando..."
+  },
+  "modules": {
+    "title": "Módulos",
+    "subtitle": "Aprende paso a paso el idioma Kariña",
+    "select": "Selecciona un módulo para explorar o practicar"
+  },
+  "common": {
+    "continue": "Continuar",
+    "verify": "Verificar respuesta",
+    "clear": "Borrar todo",
+    "listen_again": "Toca para escuchar de nuevo",
+    "no_audio": "Audio no disponible",
+    "tap_listen": "Toca para reproducir pronunciación",
+    "or": "o",
+    "spanish_clue": "Pista en Español:",
+    "meaning_spanish": "Significado en Español:"
+  }
+}

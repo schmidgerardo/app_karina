@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -18,9 +20,17 @@ export default function SignInScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [error, setError] = useState('');
   const [agreed, setAgreed] = useState(false);
 
+  // ── Modal de recuperación de contraseña ────────────────────────────────────
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetMessage, setResetMessage] = useState('');
+
+  // ── Login con email y contraseña ───────────────────────────────────────────
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     const trimmedPass = password.trim();
@@ -44,7 +54,6 @@ export default function SignInScreen() {
       });
 
       if (authError) {
-        // Auditoría de errores comunes de autenticación
         if (authError.message.includes('Invalid login credentials')) {
           setError('El usuario o la contraseña no coinciden con nuestros registros.');
         } else {
@@ -60,6 +69,71 @@ export default function SignInScreen() {
     }
   };
 
+  // ── MÓDULO 6: Login con Google OAuth ──────────────────────────────────────
+  const handleGoogleLogin = async () => {
+    if (!agreed) {
+      setError('Debes aceptar los términos y condiciones para continuar.');
+      return;
+    }
+
+    setError('');
+    setLoadingGoogle(true);
+
+    try {
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: 'com.schmidgerardo.appkarina://',
+        },
+      });
+
+      if (oauthError) {
+        setError('No se pudo iniciar sesión con Google. Inténtalo de nuevo.');
+        console.error('[AUTH] Google OAuth error:', oauthError);
+      }
+      // La redirección es manejada automáticamente por Supabase + deep link
+    } catch (err) {
+      setError('Error inesperado al conectar con Google.');
+      console.error('[AUTH] Google OAuth exception:', err);
+    } finally {
+      setLoadingGoogle(false);
+    }
+  };
+
+  // ── MÓDULO 6: Recuperar contraseña ────────────────────────────────────────
+  const handleResetPassword = async () => {
+    const trimmedEmail = resetEmail.trim();
+
+    if (!trimmedEmail) {
+      setResetMessage('Por favor, ingresa tu correo electrónico.');
+      return;
+    }
+
+    setResetLoading(true);
+    setResetMessage('');
+
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        trimmedEmail,
+        {
+          redirectTo: 'com.schmidgerardo.appkarina://reset-password',
+        }
+      );
+
+      if (resetError) {
+        setResetMessage('No se pudo enviar el enlace. Verifica el correo ingresado.');
+        console.error('[AUTH] Reset password error:', resetError);
+      } else {
+        setResetMessage('Enlace enviado. Revisa tu correo electrónico.');
+      }
+    } catch (err) {
+      setResetMessage('Error inesperado. Inténtalo de nuevo.');
+      console.error('[AUTH] Reset password exception:', err);
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       behavior="padding"
@@ -71,11 +145,11 @@ export default function SignInScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* Imagen de indígenas */}
-<Image
-  source={require('@/../assets/image.png')} // 👈 Ruta corregida y blindada
-  style={{ width: '100%', height: 220 }}
-  contentFit="cover"
-/>
+        <Image
+          source={require('@/../assets/image.png')}
+          style={{ width: '100%', height: 220 }}
+          contentFit="cover"
+        />
 
         <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
           {/* Título */}
@@ -99,6 +173,7 @@ export default function SignInScreen() {
                 placeholder="Tu correo electrónico"
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 autoCapitalize="none"
+                keyboardType="email-address"
                 style={{
                   backgroundColor: 'rgba(255,255,255,0.1)',
                   borderRadius: 12,
@@ -196,8 +271,12 @@ export default function SignInScreen() {
               </View>
             </Pressable>
 
-            {/* Olvidó contraseña */}
-            <Pressable onPress={() => { /* TODO */ }}>
+            {/* MÓDULO 6: Olvidó contraseña → abre modal */}
+            <Pressable onPress={() => {
+              setResetEmail('');
+              setResetMessage('');
+              setResetModalVisible(true);
+            }}>
               <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, textAlign: 'center', textDecorationLine: 'underline' }}>
                 ¿Olvidó su contraseña?
               </Text>
@@ -210,22 +289,35 @@ export default function SignInScreen() {
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.2)' }} />
             </View>
 
-            {/* Botón Google (deshabilitado - Phase 1) */}
-            <Pressable onPress={() => {}} disabled>
+            {/* MÓDULO 6: Botón Google OAuth habilitado */}
+            <Pressable
+              onPress={handleGoogleLogin}
+              disabled={loadingGoogle}
+            >
               <View
                 style={{
-                  backgroundColor: 'rgba(255,255,255,0.1)',
+                  backgroundColor: 'rgba(255,255,255,0.95)',
                   borderRadius: 14,
                   paddingVertical: 14,
                   alignItems: 'center',
                   borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.2)',
-                  opacity: 0.5,
+                  borderColor: 'rgba(255,255,255,0.3)',
+                  opacity: loadingGoogle ? 0.7 : 1,
+                  flexDirection: 'row',
+                  justifyContent: 'center',
+                  gap: 10,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600' }}>
-                  🔒 Entrar con Google
-                </Text>
+                {loadingGoogle ? (
+                  <ActivityIndicator color="#1B5E20" />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 18 }}>🔵</Text>
+                    <Text style={{ color: '#1B5E20', fontSize: 14, fontWeight: '700' }}>
+                      Entrar con Google
+                    </Text>
+                  </>
+                )}
               </View>
             </Pressable>
 
@@ -243,6 +335,100 @@ export default function SignInScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* MÓDULO 6: Modal de recuperación de contraseña */}
+      <Modal
+        visible={resetModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 28,
+              gap: 16,
+            }}
+          >
+            <Text style={{ fontSize: 20, fontWeight: '900', color: '#1B5E20', textAlign: 'center' }}>
+              Recuperar Contraseña
+            </Text>
+            <Text style={{ fontSize: 13, color: '#666', textAlign: 'center', lineHeight: 20 }}>
+              Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.
+            </Text>
+
+            <TextInput
+              value={resetEmail}
+              onChangeText={setResetEmail}
+              placeholder="Tu correo electrónico"
+              placeholderTextColor="#AAA"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              style={{
+                backgroundColor: '#F5F5F5',
+                borderRadius: 12,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                color: '#1A2E1A',
+                fontSize: 15,
+                borderWidth: 1,
+                borderColor: '#E0E0E0',
+              }}
+            />
+
+            {resetMessage ? (
+              <Text
+                style={{
+                  fontSize: 13,
+                  textAlign: 'center',
+                  color: resetMessage.includes('Enlace enviado') ? '#2E7D32' : '#C62828',
+                  fontWeight: '600',
+                }}
+              >
+                {resetMessage}
+              </Text>
+            ) : null}
+
+            <Pressable
+              onPress={handleResetPassword}
+              disabled={resetLoading}
+            >
+              <View
+                style={{
+                  backgroundColor: '#1B5E20',
+                  borderRadius: 14,
+                  paddingVertical: 16,
+                  alignItems: 'center',
+                  opacity: resetLoading ? 0.7 : 1,
+                }}
+              >
+                {resetLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ color: '#FFFFFF', fontSize: 15, fontWeight: '800' }}>
+                    Enviar enlace
+                  </Text>
+                )}
+              </View>
+            </Pressable>
+
+            <Pressable onPress={() => setResetModalVisible(false)}>
+              <Text style={{ color: '#888', fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
+                Cancelar
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

@@ -4,6 +4,13 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
+import { useSession } from '@/ctx';
+import { useDatabaseContext } from '@/context/DatabaseContext';
+
+// ─── Constantes de juego ──────────────────────────────────────────────────────
+const TARGET_SUCCESSES = 2;   // Módulo 3: máximo 2 aciertos requeridos
+const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
+const XP_PER_SUCCESS = 10;    // Módulo 5: XP por acierto
 
 interface Word {
   id: string;
@@ -14,6 +21,8 @@ interface Word {
 
 export default function JuegoOpcionesScreen() {
   const router = useRouter();
+  const { session } = useSession();
+  const { enqueuePendingScore } = useDatabaseContext();
   const { modulo_id } = useLocalSearchParams();
 
   // Parse and normalize modulo_id
@@ -30,8 +39,10 @@ export default function JuegoOpcionesScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
   const [successCount, setSuccessCount] = useState(0);
+  const [totalQuestions, setTotalQuestions] = useState(0);
   const [score, setScore] = useState(0);
   const [gameOver, setGameOver] = useState(false);
+  const [savingProgress, setSavingProgress] = useState(false);
 
   const player = useAudioPlayer(null);
   const status = useAudioPlayerStatus(player);
@@ -128,27 +139,75 @@ export default function JuegoOpcionesScreen() {
     if (checked) return;
     setSelectedId(opt.id);
     setChecked(true);
+    setTotalQuestions(q => q + 1);
 
     const isCorrect = opt.id === target?.id;
     if (isCorrect) {
       const nextSuccesses = successCount + 1;
       setSuccessCount(nextSuccesses);
-      setScore(s => s + 25);
+      setScore(s => s + XP_PER_SUCCESS);
 
       setTimeout(() => {
-        if (nextSuccesses >= 3) {
+        // Módulo 3: usar TARGET_SUCCESSES en lugar de 3
+        if (nextSuccesses >= TARGET_SUCCESSES) {
           setGameOver(true);
+          handleSaveProgress(nextSuccesses);
         } else {
           startRound(allWords, nextSuccesses);
         }
       }, 1200);
     } else {
-      // If wrong, wait 2 seconds and present another question to try to reach 3 successes
       setTimeout(() => {
         startRound(allWords, successCount);
       }, 2000);
     }
   };
+
+  // ── Módulo 5: Guardar XP con umbral del 70% ──────────────────────────────────
+  async function handleSaveProgress(aciertos: number) {
+    if (parsedModuloId === null || !session?.user?.id) return;
+
+    const userId = session.user.id;
+    const pctAciertos = TARGET_SUCCESSES > 0 ? aciertos / TARGET_SUCCESSES : 0;
+    if (pctAciertos < XP_THRESHOLD) return; // No superado, no guardar XP
+
+    const xpGanado = aciertos * XP_PER_SUCCESS;
+
+    try {
+      setSavingProgress(true);
+      const { data: existing } = await supabase
+        .from('module_progress')
+        .select('id, xp')
+        .eq('user_id', userId)
+        .eq('modulo_id', parsedModuloId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('module_progress')
+          .update({
+            xp: (existing.xp || 0) + xpGanado,
+            completed: true,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('module_progress').insert({
+          user_id: userId,
+          modulo_id: parsedModuloId,
+          xp: xpGanado,
+          completed: true,
+          completed_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      // Sin conexión → encolar en SQLite (Módulo 1)
+      console.warn('[OPCIONES] Sin conexión, encolando score offline:', err);
+      await enqueuePendingScore(userId, Number(parsedModuloId), xpGanado);
+    } finally {
+      setSavingProgress(false);
+    }
+  }
 
   const handleGoToDictation = () => {
     if (parsedModuloId !== null) {
@@ -186,18 +245,64 @@ export default function JuegoOpcionesScreen() {
   }
 
   if (gameOver) {
+    // Módulo 5: calcular porcentaje de aciertos
+    const pctAciertos = TARGET_SUCCESSES > 0 ? successCount / TARGET_SUCCESSES : 0;
+    const passed = pctAciertos >= XP_THRESHOLD;
+    const xpGanado = passed ? successCount * XP_PER_SUCCESS : 0;
+
     return (
       <SafeAreaView style={styles.victoryContainer}>
         <View style={styles.victoryCard}>
-          <Text style={styles.victoryEmoji}>🎉</Text>
-          <Text style={styles.victoryTitle}>¡Buen trabajo!</Text>
-          <Text style={styles.victorySubtitle}>Acertaste 3 palabras y ganaste</Text>
-          <View style={styles.scoreBadge}>
-            <Text style={styles.scoreText}>⭐ {score} pts</Text>
-          </View>
-          <Pressable onPress={handleGoToDictation} style={styles.victoryButton}>
-            <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
-          </Pressable>
+          {passed ? (
+            <>
+              <Text style={styles.victoryEmoji}>🎉</Text>
+              <Text style={styles.victoryTitle}>¡Buen trabajo!</Text>
+              <Text style={styles.victorySubtitle}>Acertaste {successCount} de {TARGET_SUCCESSES} palabras</Text>
+              <View style={styles.scoreBadge}>
+                <Text style={styles.scoreText}>⭐ {score} pts</Text>
+              </View>
+              {parsedModuloId !== null && (
+                <View style={[styles.scoreBadge, { backgroundColor: '#E8F5E9', borderColor: '#81C784', marginTop: 8 }]}>
+                  <Text style={[styles.scoreText, { color: '#2E7D32' }]}>+{xpGanado} XP</Text>
+                </View>
+              )}
+              <Pressable
+                onPress={handleGoToDictation}
+                style={[styles.victoryButton, savingProgress && { opacity: 0.7 }]}
+                disabled={savingProgress}
+              >
+                {savingProgress
+                  ? <ActivityIndicator color="#FFFFFF" size="small" />
+                  : <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
+                }
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.victoryEmoji}>😓</Text>
+              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>Sección no superada</Text>
+              <Text style={[styles.victorySubtitle, { textAlign: 'center', marginTop: 8 }]}>
+                Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!
+              </Text>
+              <View style={[styles.scoreBadge, { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A', marginTop: 16 }]}>
+                <Text style={[styles.scoreText, { color: '#C62828' }]}>
+                  {successCount} / {TARGET_SUCCESSES} correctos ({Math.round(pctAciertos * 100)}%)
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  setGameOver(false);
+                  setSuccessCount(0);
+                  setTotalQuestions(0);
+                  setScore(0);
+                  startRound(allWords, 0);
+                }}
+                style={[styles.victoryButton, { backgroundColor: '#C62828' }]}
+              >
+                <Text style={styles.victoryButtonText}>Reintentar</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -209,13 +314,15 @@ export default function JuegoOpcionesScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        {/* Módulo 4: router.replace para destruir pila de navegación */}
+        <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Salir</Text>
         </Pressable>
         <Text style={styles.headerTitle}>🎧 Escucha y elige</Text>
         <View style={styles.headerStats}>
           <View style={styles.statBadge}>
-            <Text style={styles.statLabel}>Aciertos: {successCount} de 3</Text>
+            {/* Módulo 3: mostrar TARGET_SUCCESSES */}
+            <Text style={styles.statLabel}>Aciertos: {successCount} de {TARGET_SUCCESSES}</Text>
           </View>
           <View style={styles.statBadge}>
             <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>

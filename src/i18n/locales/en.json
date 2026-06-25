@@ -1,0 +1,99 @@
+{
+  "nav": {
+    "home": "Home",
+    "modules": "Modules",
+    "dictionary": "Dictionary",
+    "games": "Games",
+    "profile": "Profile"
+  },
+  "auth": {
+    "email": "Email",
+    "password": "Password",
+    "enter": "Sign In",
+    "login_google": "Sign in with Google",
+    "forgot_password": "Forgot your password?",
+    "no_account": "Don't have an account?",
+    "register": "Sign Up",
+    "terms": "I accept the Terms of Service and Privacy Policy",
+    "email_placeholder": "Your email address",
+    "password_placeholder": "Your password",
+    "show": "SHOW",
+    "hide": "HIDE",
+    "reset_title": "Reset Password",
+    "reset_description": "Enter your email and we'll send you a link to reset your password.",
+    "reset_send": "Send link",
+    "reset_success": "Link sent. Check your email.",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "empty_fields": "Please enter your email and password.",
+    "accept_terms": "You must accept the terms and conditions to continue.",
+    "invalid_credentials": "The username or password does not match our records.",
+    "generic_auth": "An issue occurred. Please try again.",
+    "unexpected": "Unexpected error. Please try again.",
+    "empty_email": "Please enter your email address."
+  },
+  "games": {
+    "exit": "← Exit",
+    "loading": "Loading challenge...",
+    "insufficient_words": "Not enough words",
+    "insufficient_words_desc": "This module does not have enough words to start this mini-game (at least 4 required).",
+    "back_menu": "Back to menu",
+    "retry": "Try again",
+    "score": "Points",
+    "xp_earned": "XP Earned",
+    "not_passed": "Section not passed",
+    "not_passed_desc": "You need at least 70% accuracy to advance. Keep practicing!",
+    "next_game": "Next Game",
+    "finish": "Finish practice",
+    "correct": "Excellent work! Correct!",
+    "round_of": "Round {{current}} of {{total}}",
+    "word_of": "Word {{current}} of {{total}}",
+    "successes_of": "Correct: {{current}} of {{total}}"
+  },
+  "unir": {
+    "title": "🔗 Match the words",
+    "instructions": "Drag from Kariña to Spanish or tap both to match them",
+    "victory_title": "Challenge Completed!",
+    "victory_subtitle": "Score obtained"
+  },
+  "opciones": {
+    "title": "🎧 Listen and choose",
+    "instructions": "Listen to the audio and select the correct Kariña translation",
+    "victory_title": "Good job!",
+    "victory_subtitle": "You answered correctly"
+  },
+  "dictado": {
+    "title": "✍️ Kariña Dictation",
+    "instructions": "Listen to the audio and arrange the letters to spell the word",
+    "victory_title": "Congratulations!",
+    "victory_subtitle": "You completed the practice session"
+  },
+  "profile": {
+    "title": "My Profile",
+    "total_xp": "Total XP",
+    "modules_completed": "Modules Completed",
+    "games_played": "Games",
+    "edit": "Edit Profile",
+    "logout": "Sign Out",
+    "language_toggle": "🇬🇧 EN → 🇪🇸 ES",
+    "sync": "Sync Content",
+    "syncing": "Syncing..."
+  },
+  "modules": {
+    "title": "Modules",
+    "subtitle": "Learn the Kariña language step by step",
+    "select": "Select a module to explore or practice"
+  },
+  "common": {
+    "continue": "Continue",
+    "verify": "Check answer",
+    "clear": "Clear all",
+    "listen_again": "Tap to listen again",
+    "no_audio": "Audio not available",
+    "tap_listen": "Tap to play pronunciation",
+    "or": "or",
+    "spanish_clue": "Spanish Clue:",
+    "meaning_spanish": "Meaning in Spanish:"
+  }
+}

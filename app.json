@@ -40,7 +40,8 @@
           "cameraPermission": "Permitir a $(PRODUCT_NAME) acceder a la cámara para tomar una foto de perfil",
           "photosPermission": "Permitir a $(PRODUCT_NAME) acceder a la galería para seleccionar una foto de perfil"
         }
-      ]
+      ],
+      "expo-localization"
     ],
     "router": {
       "root": "src"

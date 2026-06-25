@@ -7,6 +7,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useColorScheme } from 'nativewind';
 
 import { SessionProvider, useSession } from '@/ctx';
+import { DatabaseProvider } from '@/context/DatabaseContext';
+import { LanguageProvider } from '@/context/LanguageContext';
+
+// Inicializar i18n al arrancar la app (efecto de módulo, sin hooks)
+import '@/i18n';
+
 import '../global.css';
 
 function AuthGuard() {
@@ -56,7 +62,13 @@ export default function RootLayout() {
         backgroundColor={colorScheme === 'dark' ? '#081408' : '#F9F6F0'}
       />
       <SessionProvider>
-        <AuthGuard />
+        {/* Módulo 1: Motor SQLite offline disponible globalmente */}
+        <DatabaseProvider>
+          {/* Módulo 2: Idioma global sincronizado con Supabase */}
+          <LanguageProvider>
+            <AuthGuard />
+          </LanguageProvider>
+        </DatabaseProvider>
       </SessionProvider>
       <PortalHost />
     </GestureHandlerRootView>
