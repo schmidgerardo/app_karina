@@ -36,51 +36,73 @@ export default function PerfilScreen() {
     }, [])
   );
 
- async function loadProfile() {
-  if (!session?.user?.id) return;
-  setLoading(true);
-  
-  try {
-    // 1. Intentar obtener el perfil
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .maybeSingle(); // IMPORTANTE: maybeSingle no da error 406 si no hay nada
-
-    if (error) {
-      console.error("Error cargando perfil:", error);
-    }
-
-    if (data) {
-      // Perfil existe, lo cargamos
-      setProfile(data);
-      setAvatarUrl(data.avatar_url);
-      setEditName(data.full_name || '');
-      setEditEdad(data.edad ? String(data.edad) : '');
-    } else {
-      // 2. Si NO existe, intentamos crearlo manualmente (Fallback)
-      console.log("Perfil no encontrado, creando uno nuevo...");
-      const { data: newUser, error: insertError } = await supabase
+  async function loadProfile() {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    
+    try {
+      // 1. Intentar obtener el perfil
+      const { data, error } = await supabase
         .from('profiles')
-        .insert({
-          id: session.user.id,
-          full_name: session.user.user_metadata?.full_name || 'Usuario Google',
-          username: 'user_' + session.user.id.slice(0, 5),
-          idioma: 'es'
-        })
-        .select()
-        .single();
-      
-      if (newUser) setProfile(newUser);
-      if (insertError) console.error("Error al crear perfil manual:", insertError);
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error cargando perfil:", error);
+      }
+
+      if (data) {
+        // Perfil existe, lo cargamos
+        setProfile(data);
+        
+        // 🟢 REPARACIÓN: Si el nombre está vacío, lo actualizamos con los datos de Google
+        if (!data.full_name && session?.user?.user_metadata?.full_name) {
+          await supabase
+            .from('profiles')
+            .update({ 
+              full_name: session.user.user_metadata.full_name,
+              avatar_url: session.user.user_metadata.avatar_url 
+            })
+            .eq('id', session.user.id);
+          
+          // Actualizamos el estado local con los nuevos valores
+          data.full_name = session.user.user_metadata.full_name;
+          data.avatar_url = session.user.user_metadata.avatar_url;
+        }
+
+        setAvatarUrl(data.avatar_url);
+        setEditName(data.full_name || '');
+        setEditEdad(data.edad ? String(data.edad) : '');
+      } else {
+        // 2. Si NO existe, lo creamos manualmente (Fallback)
+        console.log("Perfil no encontrado, creando uno nuevo...");
+        const { data: newUser, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            full_name: session.user.user_metadata?.full_name || 'Usuario Google',
+            username: 'user_' + session.user.id.slice(0, 5),
+            idioma: 'es'
+          })
+          .select()
+          .single();
+        
+        if (newUser) {
+          setProfile(newUser);
+          setAvatarUrl(newUser.avatar_url);
+          setEditName(newUser.full_name || '');
+          setEditEdad(newUser.edad ? String(newUser.edad) : '');
+        }
+        if (insertError) console.error("Error al crear perfil manual:", insertError);
+      }
+    } catch (e) {
+      console.error("Error crítico:", e);
+    } finally {
+      setLoading(false);
     }
-  } catch (e) {
-    console.error("Error crítico:", e);
-  } finally {
-    setLoading(false);
   }
-}
+
   async function handleSave() {
     if (!session?.user?.id) return;
     setLoading(true);
@@ -154,7 +176,7 @@ export default function PerfilScreen() {
           <Pressable onPress={pickImage}>
             <Image 
               source={avatarUrl ? { uri: avatarUrl } : require('@/../assets/image.png')} 
-              style={{ width: 100, height: 100, borderRadius: 50, borderWhidth: 3, borderColor: '#F59E0B' }} 
+              style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#F59E0B' }} 
             />
             <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#F59E0B', borderRadius: 15, padding: 5 }}>
               <Text>📷</Text>
