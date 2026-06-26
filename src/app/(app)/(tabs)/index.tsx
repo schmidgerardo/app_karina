@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, Dimensions, NativeSyntheticEvent, NativeScrollEvent, Modal, TextInput } from 'react-native'; // ✅ Agregué Modal y TextInput
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -155,6 +155,13 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState('');
   const [idioma, setIdioma] = useState('es');
 
+  // ========== NUEVOS ESTADOS PARA EL MODAL ==========
+  const [showCompleteProfile, setShowCompleteProfile] = useState(false);
+  const [edad, setEdad] = useState('');
+  const [comunidad, setComunidad] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // =================================================
+
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -168,14 +175,28 @@ export default function HomeScreen() {
     if (count !== null) setModulesCount(count);
 
     if (session?.user?.id) {
+      // ✅ Incluimos 'edad' y 'pertenece_comunidad' en la consulta
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, username, idioma')
+        .select('full_name, username, idioma, edad, pertenece_comunidad')
         .eq('id', session.user.id)
         .single();
+
       if (profile) {
         setUserName(profile.full_name || profile.username || 'Usuario');
         if (profile.idioma) setIdioma(profile.idioma);
+
+        // ✅ Si la edad es null, mostramos el modal
+        if (profile.edad === null || profile.edad === undefined) {
+          setShowCompleteProfile(true);
+        } else {
+          // Si ya tiene edad, aseguramos que el modal no se muestre
+          setShowCompleteProfile(false);
+        }
+
+        // Pre-cargamos los valores actuales en los estados del formulario (por si el usuario ya tiene datos)
+        setEdad(profile.edad?.toString() || '');
+        setComunidad(profile.pertenece_comunidad || false);
       }
 
       const { data: progData } = await supabase
@@ -198,6 +219,32 @@ export default function HomeScreen() {
     await supabase.from('profiles').update({ idioma: nuevo }).eq('id', session.user.id);
     setIdioma(nuevo);
   }
+
+  // ========== FUNCIÓN PARA GUARDAR DATOS DEL FORMULARIO ==========
+  const saveProfileExtras = async () => {
+    if (!edad) {
+      // Podrías mostrar un toast o alerta, pero por ahora solo retornamos
+      return;
+    }
+    setSaving(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        edad: parseInt(edad),
+        pertenece_comunidad: comunidad,
+        updated_at: new Date()
+      })
+      .eq('id', session?.user?.id);
+
+    if (!error) {
+      setShowCompleteProfile(false);
+      // Refrescamos los datos del perfil
+      await loadData();
+    }
+    setSaving(false);
+  };
+  // ==============================================================
 
   const completedCount = progress.filter((p) => Boolean(p.completed_at)).length;
   const progressPercent = modulesCount > 0 ? (completedCount / modulesCount) * 100 : 0;
@@ -317,6 +364,50 @@ export default function HomeScreen() {
 
         <View style={{ height: 30 }} />
       </ScrollView>
+
+      {/* ========== MODAL DE COMPLETAR PERFIL ========== */}
+      <Modal visible={showCompleteProfile} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 25, gap: 15 }}>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: '#1B5E20', textAlign: 'center' }}>
+              ¡Casi listo!
+            </Text>
+            <Text style={{ textAlign: 'center', color: '#666' }}>
+              Para personalizar tu experiencia, necesitamos un par de datos más:
+            </Text>
+
+            <View>
+              <Text style={{ fontWeight: '700', marginBottom: 5 }}>¿Cuál es tu edad?</Text>
+              <TextInput 
+                value={edad} 
+                onChangeText={setEdad} 
+                placeholder="Ej: 25" 
+                keyboardType="numeric"
+                style={{ backgroundColor: '#F0F0F0', padding: 15, borderRadius: 10 }}
+              />
+            </View>
+
+            <Pressable 
+              onPress={() => setComunidad(!comunidad)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 }}
+            >
+              <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#1B5E20', backgroundColor: comunidad ? '#1B5E20' : 'transparent', justifyContent: 'center', alignItems: 'center' }}>
+                {comunidad && <Text style={{ color: '#FFF', fontSize: 14 }}>✓</Text>}
+              </View>
+              <Text style={{ fontWeight: '600' }}>Pertenezco a una comunidad indígena</Text>
+            </Pressable>
+
+            <Pressable 
+              onPress={saveProfileExtras} 
+              disabled={saving || !edad}
+              style={{ backgroundColor: '#F59E0B', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 }}
+            >
+              {saving ? <ActivityIndicator color="#1B5E20" /> : <Text style={{ fontWeight: '800', color: '#1B5E20' }}>Finalizar Registro</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+      {/* ============================================ */}
     </SafeAreaView>
   );
 }
