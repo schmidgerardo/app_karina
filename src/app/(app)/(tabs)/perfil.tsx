@@ -36,56 +36,51 @@ export default function PerfilScreen() {
     }, [])
   );
 
-  async function loadProfile() {
-    if (!session?.user?.id) return;
-    setLoading(true);
-    
-    try {
-      // Intentamos cargar el perfil
-      let { data, error } = await supabase
-        .from('profiles')
-        .select('username, full_name, edad, pertenece_comunidad, avatar_url')
-        .eq('id', session.user.id)
-        .maybeSingle(); // Usamos maybeSingle para que no explote si no existe
+ async function loadProfile() {
+  if (!session?.user?.id) return;
+  setLoading(true);
+  
+  try {
+    // 1. Intentar obtener el perfil
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .maybeSingle(); // IMPORTANTE: maybeSingle no da error 406 si no hay nada
 
-      // Si no existe (error 406 previo), lo creamos manualmente aquí como respaldo
-      if (!data) {
-        const newProfile = {
-          id: session.user.id,
-          username: `user_${session.user.id.slice(0, 5)}`,
-          full_name: session.user.user_metadata?.full_name || 'Usuario',
-          avatar_url: session.user.user_metadata?.avatar_url || null,
-          idioma: 'es'
-        };
-        const { data: created } = await supabase.from('profiles').insert(newProfile).select().single();
-        data = created;
-      }
-
-      if (data) {
-        setProfile(data as Profile);
-        setAvatarUrl(data.avatar_url);
-        setEditName(data.full_name || '');
-        setEditEdad(data.edad ? String(data.edad) : '');
-      }
-
-      // Cargar estadísticas
-      const { data: progData } = await supabase
-        .from('module_progress')
-        .select('xp, completed')
-        .eq('user_id', session.user.id);
-
-      if (progData) {
-        const totalXp = progData.reduce((sum, p) => sum + (p.xp || 0), 0);
-        const completed = progData.filter((p) => p.completed).length;
-        setStats({ totalXp, completed, totalGames: progData.length });
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
+    if (error) {
+      console.error("Error cargando perfil:", error);
     }
-  }
 
+    if (data) {
+      // Perfil existe, lo cargamos
+      setProfile(data);
+      setAvatarUrl(data.avatar_url);
+      setEditName(data.full_name || '');
+      setEditEdad(data.edad ? String(data.edad) : '');
+    } else {
+      // 2. Si NO existe, intentamos crearlo manualmente (Fallback)
+      console.log("Perfil no encontrado, creando uno nuevo...");
+      const { data: newUser, error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: session.user.id,
+          full_name: session.user.user_metadata?.full_name || 'Usuario Google',
+          username: 'user_' + session.user.id.slice(0, 5),
+          idioma: 'es'
+        })
+        .select()
+        .single();
+      
+      if (newUser) setProfile(newUser);
+      if (insertError) console.error("Error al crear perfil manual:", insertError);
+    }
+  } catch (e) {
+    console.error("Error crítico:", e);
+  } finally {
+    setLoading(false);
+  }
+}
   async function handleSave() {
     if (!session?.user?.id) return;
     setLoading(true);
