@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -9,19 +9,26 @@ import { useSession } from '@/ctx';
 
 interface Profile {
   username: string;
-  full_name?: string | null;
-  edad?: number | null;
-  pertenece_comunidad?: boolean;
-  avatar_url?: string | null;
+  full_name: string;
+  edad: number | null;
+  pertenece_comunidad: boolean;
+  avatar_url: string | null;
 }
 
 export default function PerfilScreen() {
   const router = useRouter();
   const { session } = useSession();
+  
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Estados para la edición
+  const [editName, setEditName] = useState('');
+  const [editEdad, setEditEdad] = useState('');
+  const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
 
   useFocusEffect(
     useCallback(() => {
@@ -29,195 +36,171 @@ export default function PerfilScreen() {
     }, [])
   );
 
-  const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
-
   async function loadProfile() {
+    if (!session?.user?.id) return;
     setLoading(true);
-    if (session?.user?.id) {
-      const { data } = await supabase
+    
+    try {
+      // Intentamos cargar el perfil
+      let { data, error } = await supabase
         .from('profiles')
         .select('username, full_name, edad, pertenece_comunidad, avatar_url')
         .eq('id', session.user.id)
-        .single();
-      if (data) {
-        setProfile(data as Profile);
-        setAvatarUrl((data as Profile).avatar_url || null);
+        .maybeSingle(); // Usamos maybeSingle para que no explote si no existe
+
+      // Si no existe (error 406 previo), lo creamos manualmente aquí como respaldo
+      if (!data) {
+        const newProfile = {
+          id: session.user.id,
+          username: `user_${session.user.id.slice(0, 5)}`,
+          full_name: session.user.user_metadata?.full_name || 'Usuario',
+          avatar_url: session.user.user_metadata?.avatar_url || null,
+          idioma: 'es'
+        };
+        const { data: created } = await supabase.from('profiles').insert(newProfile).select().single();
+        data = created;
       }
 
+      if (data) {
+        setProfile(data as Profile);
+        setAvatarUrl(data.avatar_url);
+        setEditName(data.full_name || '');
+        setEditEdad(data.edad ? String(data.edad) : '');
+      }
+
+      // Cargar estadísticas
       const { data: progData } = await supabase
         .from('module_progress')
-        .select('xp, completed, modulo_id')
+        .select('xp, completed')
         .eq('user_id', session.user.id);
 
       if (progData) {
         const totalXp = progData.reduce((sum, p) => sum + (p.xp || 0), 0);
         const completed = progData.filter((p) => p.completed).length;
-        setStats({ totalXp, completed, totalGames: progData.length * 3 });
+        setStats({ totalXp, completed, totalGames: progData.length });
       }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSave() {
+    if (!session?.user?.id) return;
+    setLoading(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: editName,
+        edad: editEdad ? parseInt(editEdad) : null,
+      })
+      .eq('id', session.user.id);
+
+    if (error) {
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
+    } else {
+      setIsEditing(false);
+      loadProfile();
     }
     setLoading(false);
   }
 
   async function pickImage() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return;
-
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.7,
+      quality: 0.5,
     });
 
     if (!result.canceled && result.assets[0]) {
-      await uploadAvatar(result.assets[0].uri);
+      uploadAvatar(result.assets[0].uri);
     }
   }
 
   async function uploadAvatar(uri: string) {
     if (!session?.user?.id) return;
+    setUploading(true);
     try {
-      setUploading(true);
       const response = await fetch(uri);
-      const arrayBuffer = await response.arrayBuffer();
-      const fileName = `${session.user.id}_${Date.now()}.jpg`;
+      const blob = await response.blob();
+      const fileName = `${session.user.id}/avatar.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(fileName, arrayBuffer, { contentType: 'image/jpeg' });
+        .upload(fileName, blob, { upsert: true, contentType: 'image/jpeg' });
 
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      const publicUrl = data.publicUrl;
-
-      await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', session.user.id);
-      setAvatarUrl(publicUrl);
+      await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id);
+      setAvatarUrl(data.publicUrl);
     } catch (e) {
-      console.error('Upload error:', e);
+      Alert.alert('Error', 'No se pudo subir la imagen');
     } finally {
       setUploading(false);
     }
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace('/(auth)/sign-in');
-  }
-
-  if (loading) {
+  if (loading && !isEditing) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#1B5E20" />
-      </SafeAreaView>
+      </View>
     );
   }
 
-  const displayName = profile?.full_name
-    ? profile.full_name
-    : profile?.username || 'Usuario';
-
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={{ backgroundColor: '#1B5E20', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 30, alignItems: 'center' }}>
-          <Pressable onPress={pickImage} disabled={uploading}>
-            <View style={{ position: 'relative' }}>
-              <View
-                style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: 45,
-                  backgroundColor: avatarUrl ? 'transparent' : '#F59E0B',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 3,
-                  borderColor: 'rgba(255,255,255,0.5)',
-                  overflow: 'hidden',
-                }}
-              >
-                {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={{ width: 90, height: 90 }} contentFit="cover" />
-                ) : (
-                  <Text style={{ fontSize: 36 }}>👤</Text>
-                )}
-              </View>
-              {uploading && (
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 45, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
-                  <ActivityIndicator size="small" color="#FFF" />
-                </View>
-              )}
-              <View
-                style={{
-                  position: 'absolute',
-                  bottom: 0,
-                  right: 0,
-                  backgroundColor: '#F59E0B',
-                  borderRadius: 16,
-                  width: 28,
-                  height: 28,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  borderWidth: 2,
-                  borderColor: '#1B5E20',
-                }}
-              >
-                <Text style={{ fontSize: 12 }}>📷</Text>
-              </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }}>
+      <ScrollView>
+        {/* Header con Foto */}
+        <View style={{ backgroundColor: '#1B5E20', alignItems: 'center', paddingVertical: 30 }}>
+          <Pressable onPress={pickImage}>
+            <Image 
+              source={avatarUrl ? { uri: avatarUrl } : require('@/../assets/image.png')} 
+              style={{ width: 100, height: 100, borderRadius: 50, borderWhidth: 3, borderColor: '#F59E0B' }} 
+            />
+            <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#F59E0B', borderRadius: 15, padding: 5 }}>
+              <Text>📷</Text>
             </View>
           </Pressable>
-          <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900', marginTop: 12 }}>
-            {displayName}
-          </Text>
-          <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '600', marginTop: 2 }}>
-            @{profile?.username || 'usuario'}
-          </Text>
-          {profile?.es_indigena && (
-            <View style={{ backgroundColor: 'rgba(245,158,11,0.25)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, marginTop: 8 }}>
-              <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>🪶 Comunidad Indígena</Text>
-            </View>
-          )}
-          <Pressable onPress={pickImage} disabled={uploading}>
-            <View style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
-                {uploading ? 'Subiendo...' : '📷 Cambiar foto de perfil'}
-              </Text>
-            </View>
-          </Pressable>
+          <Text style={{ color: '#FFF', fontSize: 22, fontWeight: 'bold', marginTop: 10 }}>{profile?.full_name}</Text>
+          <Text style={{ color: '#F59E0B' }}>@{profile?.username}</Text>
         </View>
 
-        {/* Información */}
-        <View style={{ padding: 20, gap: 12 }}>
-          <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginBottom: 4 }}>Información personal</Text>
-
-          <InfoCard label="Nombre completo" value={profile?.full_name || profile?.username || '-'} />
-          <InfoCard label="Edad" value={profile?.edad ? `${profile.edad} años` : '-'} />
-          <InfoCard label="Comunidad indígena" value={profile?.pertenece_comunidad ? 'Sí' : 'No'} />
-
-          {/* Estadísticas */}
-          <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', marginTop: 8, marginBottom: 4 }}>Estadísticas de aprendizaje</Text>
-
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <StatCard value={String(stats.completed)} label="Módulos completados" color="#2E7D32" />
-            <StatCard value={String(stats.totalXp)} label="XP total" color="#1565C0" />
-            <StatCard value={String(stats.totalGames)} label="Ejercicios hechos" color="#E65100" />
+        {/* Formulario / Info */}
+        <View style={{ padding: 20, gap: 15 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: '800' }}>Información</Text>
+            <Pressable onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
+              <Text style={{ color: '#1B5E20', fontWeight: '700' }}>{isEditing ? 'GUARDAR' : 'EDITAR'}</Text>
+            </Pressable>
           </View>
 
-          {/* Cerrar sesión */}
-          <Pressable onPress={handleLogout} style={{ marginTop: 16 }}>
-            <View
-              style={{
-                backgroundColor: '#FFEBEE',
-                borderRadius: 14,
-                paddingVertical: 16,
-                alignItems: 'center',
-                borderWidth: 1,
-                borderColor: '#FFCDD2',
-              }}
-            >
-              <Text style={{ color: '#C62828', fontSize: 16, fontWeight: '800' }}>Cerrar sesión</Text>
+          {isEditing ? (
+            <View style={{ gap: 10 }}>
+              <Text style={{ color: '#666' }}>Nombre Completo</Text>
+              <TextInput value={editName} onChangeText={setEditName} style={inputStyle} />
+              <Text style={{ color: '#666' }}>Edad</Text>
+              <TextInput value={editEdad} onChangeText={setEditEdad} keyboardType="numeric" style={inputStyle} />
             </View>
+          ) : (
+            <View style={{ gap: 10 }}>
+              <InfoRow label="Nombre" value={profile?.full_name} />
+              <InfoRow label="Edad" value={profile?.edad ? `${profile.edad} años` : 'No definida'} />
+              <InfoRow label="Comunidad" value={profile?.pertenece_comunidad ? 'Kariña' : 'No pertenece'} />
+            </View>
+          )}
+
+          {/* Estadísticas (se mantienen igual) */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+             <StatCard label="XP" value={stats.totalXp} color="#F59E0B" />
+             <StatCard label="Módulos" value={stats.completed} color="#1B5E20" />
+          </View>
+
+          <Pressable onPress={() => supabase.auth.signOut()} style={{ marginTop: 20, padding: 15, backgroundColor: '#FFEBEE', borderRadius: 10, alignItems: 'center' }}>
+            <Text style={{ color: '#C62828', fontWeight: 'bold' }}>Cerrar Sesión</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -225,42 +208,23 @@ export default function PerfilScreen() {
   );
 }
 
-function InfoCard({ label, value }: { label: string; value: string }) {
+// Componentes pequeños para limpiar el código
+const inputStyle = { backgroundColor: '#FFF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#DDD' };
+
+function InfoRow({ label, value }: { label: string, value: any }) {
   return (
-    <View
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#F0EDE8',
-      }}
-    >
-      <Text style={{ fontSize: 13, color: '#888' }}>{label}</Text>
-      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A' }}>{value}</Text>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 15, backgroundColor: '#FFF', borderRadius: 10 }}>
+      <Text style={{ color: '#666' }}>{label}</Text>
+      <Text style={{ fontWeight: '700' }}>{value}</Text>
     </View>
   );
 }
 
-function StatCard({ value, label, color }: { value: string; label: string; color: string }) {
+function StatCard({ label, value, color }: { label: string, value: any, color: string }) {
   return (
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 14,
-        padding: 14,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#F0EDE8',
-      }}
-    >
-      <Text style={{ fontSize: 24, fontWeight: '900', color }}>{value}</Text>
-      <Text style={{ fontSize: 10, color: '#888', textAlign: 'center', marginTop: 4 }}>{label}</Text>
+    <View style={{ flex: 1, padding: 15, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', borderTopWidth: 4, borderTopColor: color }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', color }}>{value}</Text>
+      <Text style={{ fontSize: 12, color: '#666' }}>{label}</Text>
     </View>
   );
 }
