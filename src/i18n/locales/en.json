@@ -23,7 +23,12 @@
     "reset_description": "Enter your email and we'll send you a link to reset your password.",
     "reset_send": "Send link",
     "reset_success": "Link sent. Check your email.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "change_password": "Change password",
+    "new_password": "New Password",
+    "enter_new_password": "Enter your new password",
+    "password_min_length": "Password must be at least 6 characters",
+    "password_updated": "Password updated successfully"
   },
   "errors": {
     "empty_fields": "Please enter your email and password.",
@@ -33,7 +38,29 @@
     "unexpected": "Unexpected error. Please try again.",
     "empty_email": "Please enter your email address."
   },
+  "home": {
+    "badge": "KARIÑA · INDIGENOUS LANGUAGE",
+    "menu_title": "Interactive Menu",
+    "welcome": "Welcome, {{name}}! 👋",
+    "subtitle": "Learn the Kariña language in a fun way",
+    "your_progress": "Your progress",
+    "of": "of",
+    "modules": "modules",
+    "completed": "completed",
+    "learning_units": "Learning Units"
+  },
+  "modules": {
+    "title": "Modules",
+    "subtitle": "Learn the Kariña language step by step",
+    "select": "Select a module to explore or practice"
+  },
+  "dictionary": {
+    "title": "Review dictionary",
+    "subtitle": "Search any Kariña or Spanish word"
+  },
   "games": {
+    "title": "Review games",
+    "subtitle": "Practice with 3 fun games",
     "exit": "← Exit",
     "loading": "Loading challenge...",
     "insufficient_words": "Not enough words",
@@ -71,19 +98,32 @@
   },
   "profile": {
     "title": "My Profile",
+    "info": "Information",
+    "edit": "Edit Profile",
+    "full_name": "Full Name",
+    "age": "Age",
+    "years": "years",
+    "not_defined": "Not defined",
+    "community": "Community",
+    "karina": "Kariña",
+    "not_belong": "Does not belong",
     "total_xp": "Total XP",
+    "xp": "XP",
+    "modules": "Modules",
     "modules_completed": "Modules Completed",
     "games_played": "Games",
-    "edit": "Edit Profile",
     "logout": "Sign Out",
+    "update_error": "Could not update profile",
+    "avatar_upload_error": "Could not upload image",
+    "complete_title": "Almost ready!",
+    "complete_subtitle": "To personalize your experience, we need a couple more details:",
+    "age_question": "What is your age?",
+    "age_placeholder": "e.g., 25",
+    "belongs_to_community": "I belong to an indigenous community",
+    "finish_registration": "Complete Registration",
     "language_toggle": "🇬🇧 EN → 🇪🇸 ES",
     "sync": "Sync Content",
     "syncing": "Syncing..."
-  },
-  "modules": {
-    "title": "Modules",
-    "subtitle": "Learn the Kariña language step by step",
-    "select": "Select a module to explore or practice"
   },
   "common": {
     "continue": "Continue",
@@ -94,6 +134,16 @@
     "tap_listen": "Tap to play pronunciation",
     "or": "or",
     "spanish_clue": "Spanish Clue:",
-    "meaning_spanish": "Meaning in Spanish:"
+    "meaning_spanish": "Meaning in Spanish:",
+    "save": "Save",
+    "cancel": "Cancel",
+    "update": "Update",
+    "error": "Error",
+    "success": "Success",
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard",
+    "coming_soon": "More games soon",
+    "more_games": "We are preparing new challenges for you to keep learning Kariña in a fun way."
   }
 }

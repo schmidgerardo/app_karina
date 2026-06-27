@@ -1,11 +1,21 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View, TextInput, Alert, Modal } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+  TextInput,
+  Alert,
+  Modal,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'expo-image';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
+import { useTranslation } from 'react-i18next'; // 👈 Importar
 
 interface Profile {
   username: string;
@@ -18,19 +28,20 @@ interface Profile {
 export default function PerfilScreen() {
   const router = useRouter();
   const { session } = useSession();
-  
+  const { t } = useTranslation(); // 👈 Inicializar
+
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  
+
   // Estados para la edición
   const [editName, setEditName] = useState('');
   const [editEdad, setEditEdad] = useState('');
   const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
 
-  // 👇 Nuevos estados para cambio de contraseña
+  // Estados para cambio de contraseña
   const [showPassModal, setShowPassModal] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [passLoading, setPassLoading] = useState(false);
@@ -44,7 +55,7 @@ export default function PerfilScreen() {
   async function loadProfile() {
     if (!session?.user?.id) return;
     setLoading(true);
-    
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -53,19 +64,19 @@ export default function PerfilScreen() {
         .maybeSingle();
 
       if (error) {
-        console.error("Error cargando perfil:", error);
+        console.error('Error cargando perfil:', error);
       }
 
       if (data) {
         if (!data.full_name && session?.user?.user_metadata?.full_name) {
           await supabase
             .from('profiles')
-            .update({ 
+            .update({
               full_name: session.user.user_metadata.full_name,
-              avatar_url: session.user.user_metadata.avatar_url 
+              avatar_url: session.user.user_metadata.avatar_url,
             })
             .eq('id', session.user.id);
-          
+
           data.full_name = session.user.user_metadata.full_name;
           data.avatar_url = session.user.user_metadata.avatar_url;
         }
@@ -75,28 +86,28 @@ export default function PerfilScreen() {
         setEditName(data.full_name || '');
         setEditEdad(data.edad ? String(data.edad) : '');
       } else {
-        console.log("Perfil no encontrado, creando uno nuevo...");
+        console.log('Perfil no encontrado, creando uno nuevo...');
         const { data: newUser, error: insertError } = await supabase
           .from('profiles')
           .insert({
             id: session.user.id,
             full_name: session.user.user_metadata?.full_name || 'Usuario Google',
             username: 'user_' + session.user.id.slice(0, 5),
-            idioma: 'es'
+            idioma: 'es',
           })
           .select()
           .single();
-        
+
         if (newUser) {
           setProfile(newUser);
           setAvatarUrl(newUser.avatar_url);
           setEditName(newUser.full_name || '');
           setEditEdad(newUser.edad ? String(newUser.edad) : '');
         }
-        if (insertError) console.error("Error al crear perfil manual:", insertError);
+        if (insertError) console.error('Error al crear perfil manual:', insertError);
       }
     } catch (e) {
-      console.error("Error crítico:", e);
+      console.error('Error crítico:', e);
     } finally {
       setLoading(false);
     }
@@ -114,7 +125,7 @@ export default function PerfilScreen() {
       .eq('id', session.user.id);
 
     if (error) {
-      Alert.alert('Error', 'No se pudo actualizar el perfil');
+      Alert.alert(t('common.error'), t('profile.update_error'));
     } else {
       setIsEditing(false);
       loadProfile();
@@ -150,28 +161,30 @@ export default function PerfilScreen() {
       if (uploadError) throw uploadError;
 
       const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', session.user.id);
+      await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('id', session.user.id);
       setAvatarUrl(data.publicUrl);
     } catch (e) {
-      Alert.alert('Error', 'No se pudo subir la imagen');
+      Alert.alert(t('common.error'), t('profile.avatar_upload_error'));
     } finally {
       setUploading(false);
     }
   }
 
-  // 👇 Nueva función para cambiar contraseña
   async function handleChangePassword() {
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      Alert.alert(t('common.error'), t('auth.password_min_length'));
       return;
     }
     setPassLoading(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
-    
+
     if (error) {
-      Alert.alert('Error', error.message);
+      Alert.alert(t('common.error'), error.message);
     } else {
-      Alert.alert('Éxito', 'Contraseña actualizada correctamente');
+      Alert.alert(t('common.success'), t('auth.password_updated'));
       setShowPassModal(false);
       setNewPassword('');
     }
@@ -192,84 +205,158 @@ export default function PerfilScreen() {
         {/* Header con Foto */}
         <View style={{ backgroundColor: '#1B5E20', alignItems: 'center', paddingVertical: 30 }}>
           <Pressable onPress={pickImage}>
-            <Image 
-              source={avatarUrl ? { uri: avatarUrl } : require('@/../assets/image.png')} 
-              style={{ width: 100, height: 100, borderRadius: 50, borderWidth: 3, borderColor: '#F59E0B' }} 
+            <Image
+              source={
+                avatarUrl
+                  ? { uri: avatarUrl }
+                  : require('@/../assets/image.png')
+              }
+              style={{
+                width: 100,
+                height: 100,
+                borderRadius: 50,
+                borderWidth: 3,
+                borderColor: '#F59E0B',
+              }}
             />
-            <View style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: '#F59E0B', borderRadius: 15, padding: 5 }}>
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                right: 0,
+                backgroundColor: '#F59E0B',
+                borderRadius: 15,
+                padding: 5,
+              }}
+            >
               <Text>📷</Text>
             </View>
           </Pressable>
-          <Text style={{ color: '#FFF', fontSize: 22, fontWeight: 'bold', marginTop: 10 }}>{profile?.full_name}</Text>
+          <Text style={{ color: '#FFF', fontSize: 22, fontWeight: 'bold', marginTop: 10 }}>
+            {profile?.full_name}
+          </Text>
           <Text style={{ color: '#F59E0B' }}>@{profile?.username}</Text>
         </View>
 
         {/* Formulario / Info */}
         <View style={{ padding: 20, gap: 15 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 18, fontWeight: '800' }}>Información</Text>
-            <Pressable onPress={() => isEditing ? handleSave() : setIsEditing(true)}>
-              <Text style={{ color: '#1B5E20', fontWeight: '700' }}>{isEditing ? 'GUARDAR' : 'EDITAR'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '800' }}>{t('profile.info')}</Text>
+            <Pressable onPress={() => (isEditing ? handleSave() : setIsEditing(true))}>
+              <Text style={{ color: '#1B5E20', fontWeight: '700' }}>
+                {isEditing ? t('common.save').toUpperCase() : t('profile.edit').toUpperCase()}
+              </Text>
             </Pressable>
           </View>
 
           {isEditing ? (
             <View style={{ gap: 10 }}>
-              <Text style={{ color: '#666' }}>Nombre Completo</Text>
+              <Text style={{ color: '#666' }}>{t('profile.full_name')}</Text>
               <TextInput value={editName} onChangeText={setEditName} style={inputStyle} />
-              <Text style={{ color: '#666' }}>Edad</Text>
-              <TextInput value={editEdad} onChangeText={setEditEdad} keyboardType="numeric" style={inputStyle} />
+              <Text style={{ color: '#666' }}>{t('profile.age')}</Text>
+              <TextInput
+                value={editEdad}
+                onChangeText={setEditEdad}
+                keyboardType="numeric"
+                style={inputStyle}
+              />
             </View>
           ) : (
             <View style={{ gap: 10 }}>
-              <InfoRow label="Nombre" value={profile?.full_name} />
-              <InfoRow label="Edad" value={profile?.edad ? `${profile.edad} años` : 'No definida'} />
-              <InfoRow label="Comunidad" value={profile?.pertenece_comunidad ? 'Kariña' : 'No pertenece'} />
+              <InfoRow label={t('profile.full_name')} value={profile?.full_name} />
+              <InfoRow
+                label={t('profile.age')}
+                value={profile?.edad ? `${profile.edad} ${t('profile.years')}` : t('profile.not_defined')}
+              />
+              <InfoRow
+                label={t('profile.community')}
+                value={profile?.pertenece_comunidad ? t('profile.karina') : t('profile.not_belong')}
+              />
             </View>
           )}
 
-          {/* 👇 Botón para cambiar contraseña */}
-          <Pressable 
-            onPress={() => setShowPassModal(true)} 
-            style={{ backgroundColor: '#FFF', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#F59E0B', marginTop: 10 }}
+          {/* Botón para cambiar contraseña */}
+          <Pressable
+            onPress={() => setShowPassModal(true)}
+            style={{
+              backgroundColor: '#FFF',
+              padding: 15,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#F59E0B',
+              marginTop: 10,
+            }}
           >
-            <Text style={{ color: '#1B5E20', fontWeight: 'bold', textAlign: 'center' }}>🔐 Cambiar contraseña</Text>
+            <Text style={{ color: '#1B5E20', fontWeight: 'bold', textAlign: 'center' }}>
+              🔐 {t('auth.change_password')}
+            </Text>
           </Pressable>
 
           {/* Estadísticas */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-             <StatCard label="XP" value={stats.totalXp} color="#F59E0B" />
-             <StatCard label="Módulos" value={stats.completed} color="#1B5E20" />
+            <StatCard label={t('profile.xp')} value={stats.totalXp} color="#F59E0B" />
+            <StatCard label={t('profile.modules')} value={stats.completed} color="#1B5E20" />
           </View>
 
-          <Pressable onPress={() => supabase.auth.signOut()} style={{ marginTop: 20, padding: 15, backgroundColor: '#FFEBEE', borderRadius: 10, alignItems: 'center' }}>
-            <Text style={{ color: '#C62828', fontWeight: 'bold' }}>Cerrar Sesión</Text>
+          <Pressable
+            onPress={() => supabase.auth.signOut()}
+            style={{
+              marginTop: 20,
+              padding: 15,
+              backgroundColor: '#FFEBEE',
+              borderRadius: 10,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: '#C62828', fontWeight: 'bold' }}>{t('profile.logout')}</Text>
           </Pressable>
         </View>
       </ScrollView>
 
-      {/* 👇 Modal para cambiar contraseña */}
+      {/* Modal para cambiar contraseña */}
       <Modal visible={showPassModal} transparent animationType="slide">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
           <View style={{ backgroundColor: '#FFF', padding: 25, borderRadius: 20, gap: 15 }}>
-            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1B5E20' }}>Nueva Contraseña</Text>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1B5E20' }}>
+              {t('auth.new_password')}
+            </Text>
             <TextInput
-              placeholder="Escribe tu nueva contraseña"
+              placeholder={t('auth.enter_new_password')}
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
               style={{ backgroundColor: '#F5F5F5', padding: 15, borderRadius: 10 }}
             />
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              <Pressable onPress={() => setShowPassModal(false)} style={{ flex: 1, padding: 15, alignItems: 'center' }}>
-                <Text style={{ color: '#666' }}>Cancelar</Text>
-              </Pressable>
-              <Pressable 
-                onPress={handleChangePassword} 
-                disabled={passLoading}
-                style={{ flex: 1, backgroundColor: '#1B5E20', padding: 15, borderRadius: 10, alignItems: 'center' }}
+              <Pressable
+                onPress={() => setShowPassModal(false)}
+                style={{ flex: 1, padding: 15, alignItems: 'center' }}
               >
-                {passLoading ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Actualizar</Text>}
+                <Text style={{ color: '#666' }}>{t('common.cancel')}</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleChangePassword}
+                disabled={passLoading}
+                style={{
+                  flex: 1,
+                  backgroundColor: '#1B5E20',
+                  padding: 15,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                }}
+              >
+                {passLoading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={{ color: '#FFF', fontWeight: 'bold' }}>{t('common.update')}</Text>
+                )}
               </Pressable>
             </View>
           </View>
@@ -280,20 +367,44 @@ export default function PerfilScreen() {
 }
 
 // Componentes reutilizables
-const inputStyle = { backgroundColor: '#FFF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#DDD' };
+const inputStyle = {
+  backgroundColor: '#FFF',
+  padding: 12,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#DDD',
+};
 
-function InfoRow({ label, value }: { label: string, value: any }) {
+function InfoRow({ label, value }: { label: string; value: any }) {
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 15, backgroundColor: '#FFF', borderRadius: 10 }}>
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        padding: 15,
+        backgroundColor: '#FFF',
+        borderRadius: 10,
+      }}
+    >
       <Text style={{ color: '#666' }}>{label}</Text>
       <Text style={{ fontWeight: '700' }}>{value}</Text>
     </View>
   );
 }
 
-function StatCard({ label, value, color }: { label: string, value: any, color: string }) {
+function StatCard({ label, value, color }: { label: string; value: any; color: string }) {
   return (
-    <View style={{ flex: 1, padding: 15, backgroundColor: '#FFF', borderRadius: 10, alignItems: 'center', borderTopWidth: 4, borderTopColor: color }}>
+    <View
+      style={{
+        flex: 1,
+        padding: 15,
+        backgroundColor: '#FFF',
+        borderRadius: 10,
+        alignItems: 'center',
+        borderTopWidth: 4,
+        borderTopColor: color,
+      }}
+    >
       <Text style={{ fontSize: 20, fontWeight: 'bold', color }}>{value}</Text>
       <Text style={{ fontSize: 12, color: '#666' }}>{label}</Text>
     </View>
