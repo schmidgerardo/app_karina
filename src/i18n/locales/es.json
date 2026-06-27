@@ -52,11 +52,17 @@
   "modules": {
     "title": "Módulos",
     "subtitle": "Aprende paso a paso el idioma Kariña",
-    "select": "Selecciona un módulo para explorar o practicar"
+    "select": "Selecciona un módulo para explorar o practicar",
+    "practice_subtitle": "3 ejercicios · Empareja, dictado y opciones",
+    "more_words_soon": "Próximamente más palabras"
   },
   "dictionary": {
-    "title": "Diccionario de repaso",
-    "subtitle": "Busca cualquier palabra Kariña o español"
+    "title": "Diccionario",
+    "subtitle": "Busca cualquier palabra Kariña o español",
+    "reference": "Referencia",
+    "word_count": "{{count}} palabras registradas",
+    "search_placeholder": "Buscar palabra...",
+    "no_results": "No se encontraron palabras"
   },
   "games": {
     "title": "Juegos de repaso",
@@ -144,6 +150,7 @@
     "medium": "Medio",
     "hard": "Difícil",
     "coming_soon": "Más juegos pronto",
-    "more_games": "Estamos preparando nuevos desafíos para que sigas aprendiendo el idioma Kariña de forma divertida."
+    "more_games": "Estamos preparando nuevos desafíos para que sigas aprendiendo el idioma Kariña de forma divertida.",
+    "words": "palabras"
   }
 }

@@ -52,11 +52,17 @@
   "modules": {
     "title": "Modules",
     "subtitle": "Learn the Kariña language step by step",
-    "select": "Select a module to explore or practice"
+    "select": "Select a module to explore or practice",
+    "practice_subtitle": "3 exercises · Match, dictation and options",
+    "more_words_soon": "More words coming soon"
   },
   "dictionary": {
-    "title": "Review dictionary",
-    "subtitle": "Search any Kariña or Spanish word"
+    "title": "Dictionary",
+    "subtitle": "Search any Kariña or Spanish word",
+    "reference": "Reference",
+    "word_count": "{{count}} registered words",
+    "search_placeholder": "Search word...",
+    "no_results": "No words found"
   },
   "games": {
     "title": "Review games",
@@ -144,6 +150,7 @@
     "medium": "Medium",
     "hard": "Hard",
     "coming_soon": "More games soon",
-    "more_games": "We are preparing new challenges for you to keep learning Kariña in a fun way."
+    "more_games": "We are preparing new challenges for you to keep learning Kariña in a fun way.",
+    "words": "words"
   }
 }
