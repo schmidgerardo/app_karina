@@ -4,6 +4,8 @@ import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
+import { useTranslation } from 'react-i18next'; // 👈 Importar
+import { useLanguage } from '@/context/LanguageContext'; // 👈 Importar
 
 interface Word {
   id: string;
@@ -14,23 +16,29 @@ interface Word {
 interface Module {
   id: number;
   titulo?: string;
+  titulo_ingles?: string;      // 👈 Campo opcional para inglés
   titulo_karina?: string;
   imagen_url?: string;
   color?: string | null;
   descripcion?: string;
+  descripcion_ingles?: string; // 👈 Campo opcional para inglés
 }
 
 export default function ModuloDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { t } = useTranslation();
+  const { language } = useLanguage(); // 👈 'es' o 'en'
+
   const [module, setModule] = useState<Module | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Recargar datos si cambia el módulo o el idioma
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [id])
+    }, [id, language]) // 👈 Dependencia añadida
   );
 
   async function loadData() {
@@ -68,38 +76,58 @@ export default function ModuloDetailScreen() {
     );
   }
 
+  // Título y descripción según el idioma actual
+  const tituloMostrado = language === 'en' && module.titulo_ingles ? module.titulo_ingles : module.titulo;
+  const descMostrada = language === 'en' && module.descripcion_ingles ? module.descripcion_ingles : module.descripcion;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
       {/* Header */}
       <View style={{ backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 }}>
         <Pressable onPress={() => router.back()} style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 16 }}>←</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>Menú</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '600' }}>{t('games.back_menu')}</Text>
           </View>
         </Pressable>
+
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <Image source={{ uri: module.imagen_url }} style={{ width: 70, height: 70, borderRadius: 12 }} contentFit="cover" />
           <View style={{ flex: 1 }}>
             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700' }}>{module.titulo_karina}</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900' }}>{module.titulo}</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{module.descripcion}</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 20, fontWeight: '900' }}>{tituloMostrado}</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 2 }}>{descMostrada}</Text>
           </View>
         </View>
-        
-        {/* 🔥 REEMPLAZO: Botón practicar unificado con el nuevo flujo */}
-        <Pressable 
-          onPress={() => router.push({
-            pathname: '/(app)/juego/unir',
-            params: { modulo_id: module.id }
-          })} 
+
+        {/* Botón Practicar */}
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: '/(app)/juego/unir',
+              params: { modulo_id: module.id },
+            })
+          }
           style={{ marginTop: 14 }}
         >
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' }}>
+          <View
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              borderRadius: 12,
+              paddingVertical: 12,
+              paddingHorizontal: 16,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 10,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.3)',
+            }}
+          >
             <Text style={{ fontSize: 20 }}>🎯</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>Practicar este módulo</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>3 ejercicios · Empareja, dictado y opciones</Text>
+              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{t('unir.title')}</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>
+                {language === 'es' ? '3 ejercicios · Empareja, dictado y opciones' : '3 exercises · Match, dictation and options'}
+              </Text>
             </View>
             <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
           </View>
@@ -114,9 +142,18 @@ export default function ModuloDetailScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A' }}>Palabras del módulo</Text>
-            <View style={{ backgroundColor: `${module.color || '#1B5E20'}18`, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 5 }}>
-              <Text style={{ fontSize: 11, color: module.color || '#1B5E20', fontWeight: '700' }}>{words.length} palabras</Text>
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A' }}>{t('nav.dictionary')}</Text>
+            <View
+              style={{
+                backgroundColor: `${module.color || '#1B5E20'}18`,
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+              }}
+            >
+              <Text style={{ fontSize: 11, color: module.color || '#1B5E20', fontWeight: '700' }}>
+                {words.length} {t('games.word_of').split(' ')[0] || (language === 'es' ? 'palabras' : 'words')}
+              </Text>
             </View>
           </View>
         }
@@ -134,7 +171,16 @@ export default function ModuloDetailScreen() {
               borderColor: '#F0EDE8',
             }}
           >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${module.color || '#1B5E20'}18`, alignItems: 'center', justifyContent: 'center' }}>
+            <View
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: `${module.color || '#1B5E20'}18`,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <Text style={{ fontSize: 14, fontWeight: '800', color: module.color || '#1B5E20' }}>{index + 1}</Text>
             </View>
             <View style={{ flex: 1 }}>
@@ -146,7 +192,9 @@ export default function ModuloDetailScreen() {
         ListEmptyComponent={
           <View style={{ alignItems: 'center', paddingVertical: 40 }}>
             <Text style={{ fontSize: 32 }}>📚</Text>
-            <Text style={{ fontSize: 14, color: '#888', marginTop: 8 }}>Próximamente más palabras</Text>
+            <Text style={{ fontSize: 14, color: '#888', marginTop: 8 }}>
+              {language === 'es' ? 'Próximamente más palabras' : 'More words coming soon'}
+            </Text>
           </View>
         }
       />
