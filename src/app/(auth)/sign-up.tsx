@@ -46,27 +46,41 @@ export default function SignUpScreen() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      // 1. Crear usuario en Auth (sin metadatos)
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            nombre: nombre.trim(),
-            apellido: apellido.trim(),
-            edad: ageNum,
-            comunidad_indigena: esIndigena,
-          },
-        },
       });
 
-      if (error) {
-        setError(error.message || 'Error al registrarse. Intenta de nuevo.');
+      if (signUpError) {
+        setError(signUpError.message || 'Error al registrarse. Intenta de nuevo.');
         return;
       }
 
-      if (data?.user) {
-        alert('¡Registro exitoso! Ya puedes ingresar.');
-        router.replace('/(auth)/sign-in');
+      if (authData.user) {
+        // 2. Esperar un segundo para que el Trigger de la DB cree la fila inicial
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // 3. Actualizar la fila con los datos reales del formulario
+        const fullName = `${nombre.trim()} ${apellido.trim()}`;
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            edad: ageNum,
+            pertenece_comunidad: esIndigena,
+            idioma: 'es',
+            updated_at: new Date(),
+          })
+          .eq('id', authData.user.id);
+
+        if (profileError) {
+          console.error('Error al actualizar el perfil:', profileError);
+          // No mostramos error al usuario para no interrumpir el flujo
+        }
+
+        // 4. Redirigir a la pantalla principal
+        router.replace('/(app)/(tabs)');
       }
     } catch (err) {
       console.error(err);
@@ -76,6 +90,7 @@ export default function SignUpScreen() {
     }
   };
 
+  // El resto del componente (UI) se mantiene exactamente igual
   return (
     <KeyboardAvoidingView
       behavior="padding"
