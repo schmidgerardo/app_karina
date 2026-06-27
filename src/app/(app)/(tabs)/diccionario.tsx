@@ -1,39 +1,35 @@
 import { useCallback, useState, useEffect } from 'react';
-import { ActivityIndicator, FlatList, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Text, TextInput, View, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { useAudioPlayer } from 'expo-audio';
+import { useAudioPlayer } from 'expo-audio'; // Asegúrate de tener expo-audio instalado
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { supabase } from '@/client/supabase';
 import { DictionaryAudioButton } from '@/components/DictionaryAudioButton';
 import { Search, SearchX } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next'; 
-import { useLanguage } from '@/context/LanguageContext'; // 👈 Importar para saber el idioma
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
-  significado_ingles: string | null; // 👈 Añadido
-  modules: { titulo: string; color?: string } | null; // 👈 Ajustado (normalmente es un objeto, no array si usas single join)
+  significado_ingles: string | null;
+  audio_url: string | null; // 👈 Campo de audio desde Supabase
+  modules: { titulo: string } | null;
 }
-
-const AUDIO_FILES: Record<string, any> = {
-  aau: require('../../../../assets/sounds/aau.mp3'),
-  mojko: require('../../../../assets/sounds/mojko.mp3'),
-  nana: require('../../../../assets/sounds/nana.mp3'),
-  nakon: require('../../../../assets/sounds/nakon.mp3'),
-};
 
 export default function DiccionarioScreen() {
   const { t } = useTranslation();
-  const { language } = useLanguage(); // 👈 'es' o 'en'
+  const { language } = useLanguage();
+  
   const [words, setWords] = useState<Word[]>([]);
   const [filtered, setFiltered] = useState<Word[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
+  // Inicializamos el reproductor de audio
   const player = useAudioPlayer(null);
 
   useFocusEffect(
@@ -42,6 +38,7 @@ export default function DiccionarioScreen() {
     }, [])
   );
 
+  // Listener para limpiar el icono de "play" cuando termine el audio
   useEffect(() => {
     const subscription = player.addListener('playbackStatusUpdate', (status) => {
       if (!status.playing && status.currentTime >= status.duration && status.duration > 0) {
@@ -53,30 +50,54 @@ export default function DiccionarioScreen() {
 
   async function loadWords() {
     setLoading(true);
-    // 1. Corregimos la consulta: incluimos significado_ingles
-    // 2. Si modules(color) falla, es porque no existe la columna 'color' en la tabla modules.
-    const { data, error } = await supabase
-      .from('words')
-      .select(`
-        id, 
-        palabra_karina, 
-        significado_espanol, 
-        significado_ingles,
-        modules (
-          titulo
-        )
-      `)
-      .order('palabra_karina');
+    try {
+      // Traemos audio_url y significado_ingles de la base de datos
+      const { data, error } = await supabase
+        .from('words')
+        .select(`
+          id, 
+          palabra_karina, 
+          significado_espanol, 
+          significado_ingles,
+          audio_url,
+          modules (titulo)
+        `)
+        .order('palabra_karina');
 
-    if (error) {
-      console.error("Error en DB:", error.message);
+      if (error) throw error;
+
+      if (data) {
+        setWords(data as any);
+        setFiltered(data as any);
+      }
+    } catch (error) {
+      console.error("Error cargando palabras:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // ✍️ FUNCIÓN CORREGIDA: Ahora usa la URL de Supabase
+  async function handlePlayAudio(word: Word) {
+    if (!word.audio_url) return;
+
+    // Si pulsamos el mismo que está sonando, pausamos
+    if (playingId === word.id) {
+      player.pause();
+      setPlayingId(null);
+      return;
     }
 
-    if (data) {
-      setWords(data as any);
-      setFiltered(data as any);
+    try {
+      setPlayingId(word.id);
+      // Cargamos la URL remota en el reproductor
+      await player.replace({ uri: word.audio_url });
+      player.play();
+    } catch (error) {
+      console.error('Error al reproducir audio remoto:', error);
+      setPlayingId(null);
+      Alert.alert(t('common.no_audio'));
     }
-    setLoading(false);
   }
 
   function handleSearch(text: string) {
@@ -108,13 +129,9 @@ export default function DiccionarioScreen() {
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-slate-950" edges={['top']}>
       {/* Header */}
       <View className="bg-primary dark:bg-slate-900 px-6 pt-4 pb-6 rounded-b-[40px] shadow-lg">
-        <Text className="text-accent font-bold text-xs tracking-widest uppercase">
-          Kariña · {t('modules.title')}
-        </Text>
+        <Text className="text-accent font-bold text-xs tracking-widest uppercase">Kariña · {t('nav.dictionary')}</Text>
         <Text className="text-white text-3xl font-black mt-1">{t('nav.dictionary')}</Text>
-        <Text className="text-white/70 text-sm mt-1">
-          {words.length} {t('nav.dictionary').toLowerCase()}
-        </Text>
+        <Text className="text-white/70 text-sm mt-1">{words.length} {t('nav.dictionary').toLowerCase()}</Text>
       </View>
 
       {/* Buscador */}
@@ -140,15 +157,14 @@ export default function DiccionarioScreen() {
           <View className="items-center py-12">
             <SearchX size={48} color="#94A3B8" />
             <Text className="text-slate-400 dark:text-slate-500 mt-4 text-base font-medium">
-              {language === 'es' ? "No se encontraron resultados" : "No results found"}
+              {language === 'es' ? "No se encontraron palabras" : "No words found"}
             </Text>
           </View>
         }
         renderItem={({ item, index }) => {
-          const hasAudio = !!AUDIO_FILES[item.palabra_karina.toLowerCase()];
           const isPlaying = playingId === item.id;
+          const hasAudio = !!item.audio_url; // 👈 Ahora depende de la base de datos
           
-          // Elegimos el significado según el idioma
           const significado = language === 'en' && item.significado_ingles 
             ? item.significado_ingles 
             : item.significado_espanol;
