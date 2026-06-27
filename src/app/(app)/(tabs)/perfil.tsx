@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View, TextInput, Alert } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Text, View, TextInput, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,6 +30,11 @@ export default function PerfilScreen() {
   const [editEdad, setEditEdad] = useState('');
   const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
 
+  // 👇 Nuevos estados para cambio de contraseña
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [passLoading, setPassLoading] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
       loadProfile();
@@ -41,7 +46,6 @@ export default function PerfilScreen() {
     setLoading(true);
     
     try {
-      // 1. Intentar obtener el perfil
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -53,10 +57,6 @@ export default function PerfilScreen() {
       }
 
       if (data) {
-        // Perfil existe, lo cargamos
-        setProfile(data);
-        
-        // 🟢 REPARACIÓN: Si el nombre está vacío, lo actualizamos con los datos de Google
         if (!data.full_name && session?.user?.user_metadata?.full_name) {
           await supabase
             .from('profiles')
@@ -66,16 +66,15 @@ export default function PerfilScreen() {
             })
             .eq('id', session.user.id);
           
-          // Actualizamos el estado local con los nuevos valores
           data.full_name = session.user.user_metadata.full_name;
           data.avatar_url = session.user.user_metadata.avatar_url;
         }
 
+        setProfile(data);
         setAvatarUrl(data.avatar_url);
         setEditName(data.full_name || '');
         setEditEdad(data.edad ? String(data.edad) : '');
       } else {
-        // 2. Si NO existe, lo creamos manualmente (Fallback)
         console.log("Perfil no encontrado, creando uno nuevo...");
         const { data: newUser, error: insertError } = await supabase
           .from('profiles')
@@ -160,6 +159,25 @@ export default function PerfilScreen() {
     }
   }
 
+  // 👇 Nueva función para cambiar contraseña
+  async function handleChangePassword() {
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+    setPassLoading(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    
+    if (error) {
+      Alert.alert('Error', error.message);
+    } else {
+      Alert.alert('Éxito', 'Contraseña actualizada correctamente');
+      setShowPassModal(false);
+      setNewPassword('');
+    }
+    setPassLoading(false);
+  }
+
   if (loading && !isEditing) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -210,7 +228,15 @@ export default function PerfilScreen() {
             </View>
           )}
 
-          {/* Estadísticas (se mantienen igual) */}
+          {/* 👇 Botón para cambiar contraseña */}
+          <Pressable 
+            onPress={() => setShowPassModal(true)} 
+            style={{ backgroundColor: '#FFF', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#F59E0B', marginTop: 10 }}
+          >
+            <Text style={{ color: '#1B5E20', fontWeight: 'bold', textAlign: 'center' }}>🔐 Cambiar contraseña</Text>
+          </Pressable>
+
+          {/* Estadísticas */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
              <StatCard label="XP" value={stats.totalXp} color="#F59E0B" />
              <StatCard label="Módulos" value={stats.completed} color="#1B5E20" />
@@ -221,11 +247,39 @@ export default function PerfilScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* 👇 Modal para cambiar contraseña */}
+      <Modal visible={showPassModal} transparent animationType="slide">
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ backgroundColor: '#FFF', padding: 25, borderRadius: 20, gap: 15 }}>
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1B5E20' }}>Nueva Contraseña</Text>
+            <TextInput
+              placeholder="Escribe tu nueva contraseña"
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              style={{ backgroundColor: '#F5F5F5', padding: 15, borderRadius: 10 }}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable onPress={() => setShowPassModal(false)} style={{ flex: 1, padding: 15, alignItems: 'center' }}>
+                <Text style={{ color: '#666' }}>Cancelar</Text>
+              </Pressable>
+              <Pressable 
+                onPress={handleChangePassword} 
+                disabled={passLoading}
+                style={{ flex: 1, backgroundColor: '#1B5E20', padding: 15, borderRadius: 10, alignItems: 'center' }}
+              >
+                {passLoading ? <ActivityIndicator color="#FFF" /> : <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Actualizar</Text>}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-// Componentes pequeños para limpiar el código
+// Componentes reutilizables
 const inputStyle = { backgroundColor: '#FFF', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#DDD' };
 
 function InfoRow({ label, value }: { label: string, value: any }) {
