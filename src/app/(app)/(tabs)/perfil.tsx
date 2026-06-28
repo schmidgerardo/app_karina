@@ -18,6 +18,7 @@ import { Image } from 'expo-image';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -33,6 +34,7 @@ export default function PerfilScreen() {
   const router = useRouter();
   const { session } = useSession();
   const { t } = useTranslation();
+  const { language } = useLanguage();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -48,7 +50,6 @@ export default function PerfilScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [passLoading, setPassLoading] = useState(false);
 
-  // Animación de entrada
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
