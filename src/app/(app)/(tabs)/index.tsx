@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 const HEADER_IMAGE = require('@/../assets/image.png');
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const isSmallScreen = SCREEN_WIDTH < 380;
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
 // Tipos
@@ -308,28 +309,40 @@ export default function HomeScreen() {
             colors={['#1B5E20', '#2E7D32']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{ position: 'relative', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 28, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
+            style={{ position: 'relative', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
           >
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <View>
-                <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700', letterSpacing: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <Text style={{ color: '#F59E0B', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 }}>
                   {t('home.badge')}
                 </Text>
-                <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
+                <Text
+                  numberOfLines={1}
+                  style={{ color: '#FFFFFF', fontSize: 22, fontWeight: '900', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}
+                >
                   {t('home.menu_title')}
                 </Text>
               </View>
-              <Pressable onPress={toggleLanguage} style={{ backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
-                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
-                  {language === 'es' ? '🇪🇸 ES → 🇬🇧 EN' : '🇬🇧 EN → 🇪🇸 ES'}
-                </Text>
+              <Pressable
+                onPress={toggleLanguage}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  paddingHorizontal: isSmallScreen ? 8 : 10,
+                  paddingVertical: isSmallScreen ? 5 : 6,
+                  borderRadius: 30,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.2)',
+                  flexShrink: 0,
+                }}
+              >
+                <Text style={{ color: '#FFFFFF', fontSize: isSmallScreen ? 9 : 10, fontWeight: '700' }}>{language === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}</Text>
               </Pressable>
             </View>
           </LinearGradient>
 
           {/* Bienvenida mejorada CON FOTO DE PERFIL */}
-          <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'nowrap' }}>
               {/* Foto de perfil del usuario */}
               <Image
                 source={
@@ -338,19 +351,39 @@ export default function HomeScreen() {
                     : require('@/../assets/image.png')
                 }
                 style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
                   borderWidth: 2,
                   borderColor: '#F59E0B',
+                  flexShrink: 0,
                 }}
                 contentFit="cover"
               />
-              <View>
-                <Text style={{ fontSize: 18, color: '#1A2E1A', fontWeight: '800' }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{
+                    fontSize: 16,
+                    color: '#1A2E1A',
+                    fontWeight: '800',
+                    flexShrink: 1,
+                  }}
+                >
                   {t('home.welcome', { name: userName })}
                 </Text>
-                <Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{t('home.subtitle')}</Text>
+                <Text
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                  style={{
+                    fontSize: 11,
+                    color: '#666',
+                    marginTop: 1,
+                  }}
+                >
+                  {t('home.subtitle')}
+                </Text>
               </View>
             </View>
           </View>
