@@ -10,6 +10,7 @@ import {
   Modal,
   Animated,
   Easing,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -44,6 +45,7 @@ export default function PerfilScreen() {
 
   const [editName, setEditName] = useState('');
   const [editEdad, setEditEdad] = useState('');
+  const [editComunidad, setEditComunidad] = useState(false); // 👈 Nuevo estado
   const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
 
   const [showPassModal, setShowPassModal] = useState(false);
@@ -111,6 +113,7 @@ export default function PerfilScreen() {
         setAvatarUrl(data.avatar_url);
         setEditName(data.full_name || '');
         setEditEdad(data.edad ? String(data.edad) : '');
+        setEditComunidad(data.pertenece_comunidad || false); // 👈 Cargar comunidad
       } else {
         console.log('Perfil no encontrado, creando uno nuevo...');
         const { data: newUser, error: insertError } = await supabase
@@ -129,6 +132,7 @@ export default function PerfilScreen() {
           setAvatarUrl(newUser.avatar_url);
           setEditName(newUser.full_name || '');
           setEditEdad(newUser.edad ? String(newUser.edad) : '');
+          setEditComunidad(newUser.pertenece_comunidad || false);
         }
         if (insertError) console.error('Error al crear perfil manual:', insertError);
       }
@@ -147,6 +151,7 @@ export default function PerfilScreen() {
       .update({
         full_name: editName,
         edad: editEdad ? parseInt(editEdad) : null,
+        pertenece_comunidad: editComunidad, // 👈 Guardar comunidad
       })
       .eq('id', session.user.id);
 
@@ -335,6 +340,32 @@ export default function PerfilScreen() {
                       style={[inputStyle, { backgroundColor: '#FFFFFF' }]}
                     />
                   </View>
+                  {/* 👈 Switch para comunidad en modo edición */}
+                  <View style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    paddingHorizontal: 4,
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: 12,
+                    padding: 12,
+                    borderWidth: 1,
+                    borderColor: '#E8E5E0',
+                  }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#1A2E1A', fontSize: 13, fontWeight: '600' }}>
+                        {t('profile.community_question')}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={editComunidad}
+                      onValueChange={setEditComunidad}
+                      trackColor={{ false: '#E8E5E0', true: '#F59E0B' }}
+                      thumbColor="#FFFFFF"
+                      ios_backgroundColor="#E8E5E0"
+                    />
+                  </View>
                 </View>
               ) : (
                 <View style={{ gap: 8 }}>
@@ -346,49 +377,51 @@ export default function PerfilScreen() {
                   />
                   <InfoRow
                     label={t('profile.community')}
-                    value={profile?.pertenece_comunidad ? t('profile.karina') : t('profile.not_belong')}
+                    value={profile?.pertenece_comunidad ? '✅ ' + t('profile.karina') : '❌ ' + t('profile.not_belong')}
                     icon="people-outline"
                   />
                 </View>
               )}
             </View>
 
-            {/* Botón cambiar contraseña */}
-            <Pressable
-              onPress={() => setShowPassModal(true)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-            >
-              <LinearGradient
-                colors={['#FFFFFF', '#F9F6F0']}
-                style={{
-                  padding: 16,
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: '#F59E0B',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 12,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.04,
-                  shadowRadius: 4,
-                  elevation: 2,
-                }}
+            {/* Botón cambiar contraseña (solo si no es usuario de Google) */}
+            {!session?.user?.app_metadata?.provider?.includes('google') && (
+              <Pressable
+                onPress={() => setShowPassModal(true)}
+                style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
               >
-                <View style={{ backgroundColor: '#FFF3E0', padding: 8, borderRadius: 50 }}>
-                  <Ionicons name="lock-closed-outline" size={22} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#1B5E20', fontWeight: '700', fontSize: 14 }}>
-                    {t('auth.change_password')}
-                  </Text>
-                  <Text style={{ color: '#888', fontSize: 11 }}>
-                    {language === 'es' ? 'Actualiza tu contraseña' : 'Update your password'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F9F6F0']}
+                  style={{
+                    padding: 16,
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: '#F59E0B',
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 4,
+                    elevation: 2,
+                  }}
+                >
+                  <View style={{ backgroundColor: '#FFF3E0', padding: 8, borderRadius: 50 }}>
+                    <Ionicons name="lock-closed-outline" size={22} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#1B5E20', fontWeight: '700', fontSize: 14 }}>
+                      {t('auth.change_password')}
+                    </Text>
+                    <Text style={{ color: '#888', fontSize: 11 }}>
+                      {language === 'es' ? 'Actualiza tu contraseña' : 'Update your password'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
+                </LinearGradient>
+              </Pressable>
+            )}
 
             {/* Estadísticas mejoradas */}
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>

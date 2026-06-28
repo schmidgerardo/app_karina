@@ -241,7 +241,12 @@ export default function HomeScreen() {
       if (profile) {
         setUserName(profile.full_name || profile.username || 'Usuario');
         setUserAvatar(profile.avatar_url || null); // 👈 Guardar avatar
-        if (profile.edad === null || profile.edad === undefined) {
+        if (
+          profile.edad === null ||
+          profile.edad === undefined ||
+          profile.pertenece_comunidad === null ||
+          profile.pertenece_comunidad === undefined
+        ) {
           setShowCompleteProfile(true);
         } else {
           setShowCompleteProfile(false);
