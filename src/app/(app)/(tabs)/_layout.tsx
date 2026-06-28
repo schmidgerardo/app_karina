@@ -1,7 +1,10 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next'; // 👈 Importamos el hook de traducción
 
 export default function TabsLayout() {
+  const { t } = useTranslation(); // 👈 Inicializamos la función de traducción
+
   return (
     <Tabs
       screenOptions={{
@@ -24,7 +27,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Inicio',
+          title: t('nav.home'), // 👈 Traducido (Inicio / Home)
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -33,7 +36,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="modulos"
         options={{
-          title: 'Módulos',
+          title: t('nav.modules'), // 👈 Traducido (Módulos / Modules)
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="book" size={size} color={color} />
           ),
@@ -42,7 +45,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="diccionario"
         options={{
-          title: 'Diccionario',
+          title: t('nav.dictionary'), // 👈 Traducido (Diccionario / Dictionary)
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="library" size={size} color={color} />
           ),
@@ -51,7 +54,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="juegos"
         options={{
-          title: 'Juegos',
+          title: t('nav.games'), // 👈 Traducido (Juegos / Games)
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="game-controller" size={size} color={color} />
           ),
@@ -60,7 +63,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="perfil"
         options={{
-          title: 'Perfil',
+          title: t('nav.profile'), // 👈 Traducido (Perfil / Profile)
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),
