@@ -2,7 +2,6 @@ import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,12 +12,11 @@ import Animated, {
 import { useEffect } from 'react';
 
 // Componente para cada pestaña animada
-function TabBarButton({ onPress, onLongPress, isFocused, label, iconName, routeName }) {
+function TabBarButton({ onPress, onLongPress, isFocused, label, iconName }) {
   // Valores compartidos para animación
   const scale = useSharedValue(1);
   const opacity = useSharedValue(1);
 
-  // Efecto cuando cambia el foco
   useEffect(() => {
     if (isFocused) {
       scale.value = withSpring(1.1, { damping: 12, stiffness: 100 });
@@ -43,7 +41,8 @@ function TabBarButton({ onPress, onLongPress, isFocused, label, iconName, routeN
     ],
   }));
 
-  const color = isFocused ? '#F59E0B' : '#E8E5E0'; // Naranja vivo si está activo, blanco suave si no
+  // Colores: naranja vivo si está activo, gris claro si no
+  const color = isFocused ? '#F59E0B' : '#A0A0A0';
 
   return (
     <Pressable
@@ -53,6 +52,8 @@ function TabBarButton({ onPress, onLongPress, isFocused, label, iconName, routeN
     >
       <Animated.View style={[styles.iconContainer, animatedIconStyle]}>
         <Ionicons name={iconName} size={26} color={color} />
+        {/* Indicador de pestaña activa */}
+        {isFocused && <View style={styles.activeIndicator} />}
       </Animated.View>
       <Animated.Text style={[styles.label, animatedLabelStyle, { color }]}>
         {label}
@@ -64,7 +65,6 @@ function TabBarButton({ onPress, onLongPress, isFocused, label, iconName, routeN
 export default function TabsLayout() {
   const { t } = useTranslation();
 
-  // Configuración de pestañas
   const screens = [
     { name: 'index', icon: 'home', label: t('nav.home') },
     { name: 'modulos', icon: 'book', label: t('nav.modules') },
@@ -77,25 +77,22 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { 
+        tabBarStyle: {
           height: 70,
-          backgroundColor: 'transparent',
+          backgroundColor: '#1B5E20', // Fondo sólido verde oscuro
           borderTopWidth: 0,
           elevation: 0,
           shadowOpacity: 0,
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
+          // Bordes redondeados solo en la parte superior
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
+          // Sombra suave
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
         },
-        tabBarBackground: () => (
-          <LinearGradient
-            colors={['#1B5E20', '#2E7D32']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientBar}
-          />
-        ),
+        tabBarShowLabel: false, // Ocultamos las etiquetas por defecto, las mostramos manualmente en el botón
       }}
     >
       {screens.map((screen) => (
@@ -119,16 +116,6 @@ export default function TabsLayout() {
 }
 
 const styles = StyleSheet.create({
-  gradientBar: {
-    flex: 1,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 10,
-  },
   tabButton: {
     flex: 1,
     alignItems: 'center',
@@ -140,6 +127,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 30,
     height: 30,
+    position: 'relative', // Para posicionar el indicador
+  },
+  activeIndicator: {
+    position: 'absolute',
+    bottom: -6,
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#F59E0B',
   },
   label: {
     fontSize: 11,
