@@ -1,10 +1,14 @@
-import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, FlatList, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, FlatList, Pressable, Text, View, Easing } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Module {
   id: number;
@@ -25,10 +29,34 @@ interface ProgressItem {
 export default function ModulosScreen() {
   const router = useRouter();
   const { session } = useSession();
+  const { t } = useTranslation();
+  const { language } = useLanguage();
   const [modules, setModules] = useState<Module[]>([]);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
-  const [idioma, setIdioma] = useState('es');
   const [loading, setLoading] = useState(true);
+
+  // Animación de entrada
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    if (!loading) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading]);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,22 +70,14 @@ export default function ModulosScreen() {
     if (data) setModules(data as Module[]);
 
     if (session?.user?.id) {
-      const [{ data: progData }, { data: profile }] = await Promise.all([
-        supabase.from('module_progress').select('modulo_id, completed').eq('user_id', session.user.id),
-        supabase.from('profiles').select('idioma').eq('id', session.user.id).single(),
-      ]);
+      const { data: progData } = await supabase
+        .from('module_progress')
+        .select('modulo_id, completed')
+        .eq('user_id', session.user.id);
       if (progData) setProgress(progData as ProgressItem[]);
-      if (profile?.idioma) setIdioma(profile.idioma);
     }
 
     setLoading(false);
-  }
-
-  async function toggleIdioma() {
-    if (!session?.user?.id) return;
-    const nuevo = idioma === 'es' ? 'en' : 'es';
-    await supabase.from('profiles').update({ idioma: nuevo }).eq('id', session.user.id);
-    setIdioma(nuevo);
   }
 
   if (loading) {
@@ -70,50 +90,87 @@ export default function ModulosScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      {/* Header */}
-      <View style={{ backgroundColor: '#1B5E20', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View>
-            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>KARIÑA · IDIOMA INDÍGENA</Text>
-            <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '900', marginTop: 4 }}>{idioma === 'es' ? '10 Módulos' : '10 Modules'}</Text>
-          </View>
-          <Pressable onPress={toggleIdioma}>
-            <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
-              <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>
-                {idioma === 'es' ? '🇪🇸 ES → 🇬🇧 EN' : '🇬🇧 EN → 🇪🇸 ES'}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
-        <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 4 }}>
-          {idioma === 'es' ? 'Aprende paso a paso el idioma Kariña' : 'Learn the Kariña language step by step'}
-        </Text>
-      </View>
-
       <FlatList
         data={modules}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={{ padding: 20 }}
+        contentContainerStyle={{ paddingBottom: 30 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
-          <Text style={{ fontSize: 13, color: '#888', marginBottom: 16, fontStyle: 'italic' }}>
-            {idioma === 'es' ? 'Selecciona un módulo para explorar o practicar' : 'Select a module to explore or practice'}
-          </Text>
+          <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+            {/* Header con gradiente */}
+            <LinearGradient
+              colors={['#1B5E20', '#2E7D32']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                paddingHorizontal: 24,
+                paddingTop: 20,
+                paddingBottom: 28,
+                borderBottomLeftRadius: 32,
+                borderBottomRightRadius: 32,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 50 }}>
+                  <Text style={{ fontSize: 28 }}>📚</Text>
+                </View>
+                <View>
+                  <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
+                    KARIÑA · {t('nav.modules').toUpperCase()}
+                  </Text>
+                  <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 2, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
+                    {t('nav.modules')}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 12, marginTop: 4 }}>
+                    {t('modules.subtitle')}
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* Subtítulo */}
+            <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="book-outline" size={18} color="#F59E0B" />
+                <Text style={{ fontSize: 13, color: '#888', fontStyle: 'italic' }}>
+                  {t('modules.select')}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
         }
-        renderItem={({ item }) => {
+        renderItem={({ item, index }) => {
           const modProgress = progress.find((p) => p.modulo_id === item.id);
-          return <ModuloItem item={item} isCompleted={modProgress?.completed || false} idioma={idioma} />;
+          return (
+            <Animated.View
+              style={{
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+                paddingHorizontal: 20,
+                marginBottom: 8,
+              }}
+            >
+              <ModuloItem 
+                item={item} 
+                isCompleted={modProgress?.completed || false} 
+                index={index}
+              />
+            </Animated.View>
+          );
         }}
       />
     </SafeAreaView>
   );
 }
 
-function ModuloItem({ item, isCompleted, idioma }: { item: Module; isCompleted: boolean; idioma: string }) {
+function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: boolean; index: number }) {
   const scale = useRef(new Animated.Value(1)).current;
   const router = useRouter();
-  const titulo = idioma === 'es' ? item.titulo_espanol : item.titulo_ingles;
-  const desc = idioma === 'es' ? item.descripcion : item.descripcion_ingles;
+  const { t } = useTranslation();
+  const { language } = useLanguage();
+
+  const titulo = language === 'es' ? item.titulo_espanol : item.titulo_ingles;
+  const desc = language === 'es' ? item.descripcion : item.descripcion_ingles;
 
   return (
     <View style={{ marginBottom: 14 }}>
@@ -123,42 +180,66 @@ function ModuloItem({ item, isCompleted, idioma }: { item: Module; isCompleted: 
         onPressOut={() => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start()}
       >
         <Animated.View style={{ transform: [{ scale }] }}>
-          <View
+          <LinearGradient
+            colors={['#FFFFFF', '#F9F6F0']}
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: 16,
+              borderRadius: 20,
               overflow: 'hidden',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
               borderWidth: 1,
               borderColor: isCompleted ? '#2E7D32' : '#F0EDE8',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.06,
+              shadowRadius: 10,
+              elevation: 4,
             }}
           >
-            <Image source={{ uri: item.imagen_url }} style={{ width: '100%', height: 140 }} contentFit="cover" />
-            <View style={{ padding: 14 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 14, fontWeight: '800', color: '#1A2E1A', flex: 1 }}>{titulo}</Text>
-                {isCompleted && (
-                  <View style={{ backgroundColor: '#E8F5E9', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 10, color: '#2E7D32', fontWeight: '700' }}>✅</Text>
+            <Image source={{ uri: item.imagen_url }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+            <View style={{ padding: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', flex: 1 }}>
+                      {titulo}
+                    </Text>
+                    {isCompleted && (
+                      <View style={{ backgroundColor: '#E8F5E9', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}>
+                        <Text style={{ fontSize: 12 }}>✅</Text>
+                      </View>
+                    )}
                   </View>
-                )}
-              </View>
-              <Text style={{ fontSize: 10, color: '#F59E0B', fontWeight: '700', marginTop: 2 }}>{item.titulo_karina}</Text>
-              <Text style={{ fontSize: 11, color: '#666', lineHeight: 15, marginTop: 4 }}>{desc}</Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-                <Text style={{ fontSize: 10, color: '#888' }}>8 {idioma === 'es' ? 'palabras' : 'words'}</Text>
-                <View style={{ backgroundColor: isCompleted ? '#E8F5E9' : '#F59E0B', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 10, fontWeight: '700' }}>
-                    {isCompleted ? (idioma === 'es' ? '✅ Listo' : '✅ Done') : (idioma === 'es' ? 'Explorar →' : 'Explore →')}
+                  <Text style={{ fontSize: 11, color: '#F59E0B', fontWeight: '700', marginTop: 2 }}>
+                    {item.titulo_karina}
                   </Text>
                 </View>
               </View>
+              <Text style={{ fontSize: 12, color: '#666', lineHeight: 17, marginTop: 6 }}>
+                {desc}
+              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="book-outline" size={14} color="#888" />
+                  <Text style={{ fontSize: 11, color: '#888' }}>8 {language === 'es' ? 'palabras' : 'words'}</Text>
+                </View>
+                <LinearGradient
+                  colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#F59E0B', '#F97316']}
+                  style={{
+                    borderRadius: 12,
+                    paddingHorizontal: 14,
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
+                    {isCompleted ? '✅ ' + (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar →' : 'Explore →')}
+                  </Text>
+                </LinearGradient>
+              </View>
             </View>
-          </View>
+          </LinearGradient>
         </Animated.View>
       </Pressable>
 
-      {/* Botón de práctica */}
+      {/* Botón de práctica mejorado */}
       <Pressable
         onPress={() => router.push({
           pathname: '/(app)/juego/unir',
@@ -166,25 +247,30 @@ function ModuloItem({ item, isCompleted, idioma }: { item: Module; isCompleted: 
         })}
         style={{ marginTop: 8 }}
       >
-        <View
+        <LinearGradient
+          colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#FFF3E0', '#FFE0B2']}
           style={{
-            backgroundColor: isCompleted ? '#E8F5E9' : '#FFF3E0',
-            borderRadius: 10,
-            paddingVertical: 8,
-            paddingHorizontal: 14,
+            borderRadius: 12,
+            paddingVertical: 10,
+            paddingHorizontal: 16,
             flexDirection: 'row',
             alignItems: 'center',
-            gap: 6,
+            gap: 8,
             alignSelf: 'flex-start',
           }}
         >
-          <Text style={{ fontSize: 14 }}>{isCompleted ? '🔄' : '🎯'}</Text>
-          <Text style={{ fontSize: 12, fontWeight: '700', color: isCompleted ? '#2E7D32' : '#F59E0B' }}>
+          <Text style={{ fontSize: 16 }}>{isCompleted ? '🔄' : '🎯'}</Text>
+          <Text style={{ fontSize: 13, fontWeight: '700', color: isCompleted ? '#2E7D32' : '#E65100' }}>
             {isCompleted
-              ? (idioma === 'es' ? 'Practicar de nuevo' : 'Practice again')
-              : (idioma === 'es' ? 'Practicar módulo' : 'Practice module')}
+              ? (language === 'es' ? 'Practicar de nuevo' : 'Practice again')
+              : (language === 'es' ? 'Practicar módulo' : 'Practice module')}
           </Text>
-        </View>
+          <Ionicons 
+            name="chevron-forward" 
+            size={16} 
+            color={isCompleted ? '#2E7D32' : '#E65100'} 
+          />
+        </LinearGradient>
       </Pressable>
     </View>
   );
