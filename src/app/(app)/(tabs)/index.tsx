@@ -10,27 +10,32 @@ import {
   NativeScrollEvent,
   Modal,
   TextInput,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
-import { useLanguage } from '@/context/LanguageContext'; // 👈 Importar contexto
-import { useTranslation } from 'react-i18next'; // 👈 Importar i18next
+import { useLanguage } from '@/context/LanguageContext';
+import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient'; // Asegúrate de tenerlo instalado: npx expo install expo-linear-gradient
+import { Ionicons } from '@expo/vector-icons';
 
-// Constantes (sin cambios)
+// Constantes
 const HEADER_IMAGE = require('@/../assets/image.png');
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// Tipos e interfaces
+// Tipos
 interface ProgressItem {
   modulo_id: number;
   completed_at?: string | null;
 }
 
+// Datos de "Sabías que"
 const SABIAS_QUE = [
   {
     titulo: '¿Sabías que?',
@@ -59,7 +64,7 @@ const SABIAS_QUE = [
   },
 ];
 
-// Componente rotativo (sin cambios, pero se podría traducir después)
+// Componente SabíasQueRotativo mejorado
 function SabiasQueRotativo() {
   const [idx, setIdx] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -85,12 +90,13 @@ function SabiasQueRotativo() {
   };
 
   return (
-    <View style={{ marginTop: 20 }}>
-      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', marginBottom: 10, marginHorizontal: 20 }}>
-        💡 ¿Sabías que?
-      </Text>
+    <View style={{ marginTop: 28, paddingHorizontal: 20 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>💡</Text>
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>Sabías que</Text>
+      </View>
 
-      <View style={{ marginHorizontal: 20, borderRadius: 18, overflow: 'hidden', backgroundColor: '#1B5E20' }}>
+      <View style={{ borderRadius: 24, overflow: 'hidden', backgroundColor: '#1B5E20', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 6 }}>
         <ScrollView
           ref={scrollViewRef}
           horizontal
@@ -105,7 +111,7 @@ function SabiasQueRotativo() {
           {SABIAS_QUE.map((s, i) => (
             <View key={i} style={{ width: CARD_WIDTH }}>
               <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
-              <View style={{ padding: 16 }}>
+              <View style={{ padding: 16, backgroundColor: '#1B5E20' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
                 <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
               </View>
@@ -113,12 +119,13 @@ function SabiasQueRotativo() {
           ))}
         </ScrollView>
 
-        <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 14, justifyContent: 'center', backgroundColor: '#1B5E20' }}>
+        {/* Indicadores modernos */}
+        <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 16, justifyContent: 'center', backgroundColor: '#1B5E20' }}>
           {SABIAS_QUE.map((_, i) => (
             <View
               key={i}
               style={{
-                width: 8,
+                width: i === idx ? 20 : 8,
                 height: 8,
                 borderRadius: 4,
                 backgroundColor: i === idx ? '#F59E0B' : 'rgba(255,255,255,0.3)',
@@ -131,41 +138,51 @@ function SabiasQueRotativo() {
   );
 }
 
-// Componente tortuga (sin cambios)
+// Componente MascotaTortuga mejorado
 function MascotaTortuga() {
   const router = useRouter();
   return (
-    <View style={{ marginHorizontal: 20, marginTop: 24, alignItems: 'center' }}>
-      <Pressable onPress={() => router.push('/(app)/pronunciacion')}>
-        <View style={{ alignItems: 'center' }}>
+    <View style={{ marginTop: 28, paddingHorizontal: 20, alignItems: 'center' }}>
+      <Pressable onPress={() => router.push('/(app)/pronunciacion')} style={{ width: '100%' }}>
+        <LinearGradient
+          colors={['#F59E0B', '#F97316']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            borderRadius: 24,
+            padding: 16,
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 14,
+            shadowColor: '#F59E0B',
+            shadowOffset: { width: 0, height: 6 },
+            shadowOpacity: 0.25,
+            shadowRadius: 12,
+            elevation: 8,
+          }}
+        >
           <Image
             source={{ uri: TORTUGA_IMAGE }}
-            style={{ width: 120, height: 120, borderRadius: 60 }}
+            style={{ width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#FFFFFF' }}
             contentFit="cover"
           />
-          <View
-            style={{
-              backgroundColor: '#F59E0B',
-              borderRadius: 12,
-              paddingHorizontal: 14,
-              paddingVertical: 6,
-              marginTop: 8,
-            }}
-          >
-            <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '800' }}>🐢 ¡Hola! Soy tu guía Kariña</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>🐢 ¡Hola! Soy tu guía Kariña</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>Toca para practicar pronunciación</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
+        </LinearGradient>
       </Pressable>
     </View>
   );
 }
 
-// Pantalla principal
+// Pantalla principal rediseñada
 export default function HomeScreen() {
   const router = useRouter();
   const { session } = useSession();
-  const { language, toggleLanguage } = useLanguage(); // 👈 Contexto global
-  const { t } = useTranslation(); // 👈 Traducciones
+  const { language, toggleLanguage } = useLanguage();
+  const { t } = useTranslation();
 
   const [modulesCount, setModulesCount] = useState(0);
   const [progress, setProgress] = useState<ProgressItem[]>([]);
@@ -173,11 +190,33 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
 
-  // Estados para el modal de completar perfil
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const [edad, setEdad] = useState('');
   const [comunidad, setComunidad] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Animaciones de entrada
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+
+  useEffect(() => {
+    if (!loading) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [loading]);
 
   useFocusEffect(
     useCallback(() => {
@@ -223,7 +262,6 @@ export default function HomeScreen() {
     setLoading(false);
   }
 
-  // Función para guardar datos adicionales del perfil (sin cambios)
   const saveProfileExtras = async () => {
     if (!edad) return;
     setSaving(true);
@@ -256,239 +294,223 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Banner */}
-        <View style={{ position: 'relative' }}>
-          <Image source={HEADER_IMAGE} style={{ width: '100%', height: 200 }} contentFit="cover" />
-          <View style={{ position: 'absolute', top: 16, right: 20 }}>
-            <Pressable onPress={toggleLanguage}>
-              <View
-                style={{
-                  backgroundColor: 'rgba(0,0,0,0.4)',
-                  borderRadius: 20,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                }}
-              >
-                <Text style={{ color: '#FFF', fontSize: 13, fontWeight: '700' }}>
-                  {language === 'es' ? '🇪🇸 ES → 🇬🇧 EN' : '🇬🇧 EN → 🇪🇸 ES'}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+          {/* Banner mejorado con gradiente */}
+          <LinearGradient
+            colors={['#1B5E20', '#2E7D32']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ position: 'relative', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 28, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <View>
+                <Text style={{ color: '#F59E0B', fontSize: 12, fontWeight: '700', letterSpacing: 1 }}>
+                  {t('home.badge')}
+                </Text>
+                <Text style={{ color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
+                  {t('home.menu_title')}
                 </Text>
               </View>
-            </Pressable>
-          </View>
-          <View style={{ position: 'absolute', bottom: 16, left: 20 }}>
-            <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700' }}>
-              {t('home.badge')} {/* "KARIÑA · INDIGENOUS LANGUAGE" */}
-            </Text>
-            <Text
-              style={{
-                color: '#FFFFFF',
-                fontSize: 22,
-                fontWeight: '900',
-                textShadowColor: 'rgba(0,0,0,0.5)',
-                textShadowOffset: { width: 0, height: 1 },
-                textShadowRadius: 3,
-              }}
-            >
-              {t('home.menu_title')} {/* "Menú Interactivo" / "Interactive Menu" */}
-            </Text>
-          </View>
-        </View>
-
-        {/* Bienvenida */}
-        <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
-          <Text style={{ fontSize: 16, color: '#1A2E1A', fontWeight: '700' }}>
-            {t('home.welcome', { name: userName })} {/* "¡Bienvenido, {name}! 👋" */}
-          </Text>
-          <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{t('home.subtitle')}</Text>
-        </View>
-
-        {/* Progreso + XP */}
-        <View
-          style={{
-            marginHorizontal: 20,
-            marginTop: 14,
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 14,
-            borderWidth: 1,
-            borderColor: '#F0EDE8',
-          }}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 13, fontWeight: '700', color: '#1A2E1A' }}>{t('home.your_progress')}</Text>
-            <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>
-              {completedCount} {t('home.of')} {modulesCount} {t('home.modules')}
-            </Text>
-          </View>
-          <View
-            style={{
-              height: 8,
-              backgroundColor: '#E8F5E9',
-              borderRadius: 4,
-              marginTop: 8,
-              overflow: 'hidden',
-            }}
-          >
-            <View
-              style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#2E7D32', borderRadius: 4 }}
-            />
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-            <Text style={{ fontSize: 11, color: '#888' }}>
-              {Math.round(progressPercent)}% {t('home.completed')}
-            </Text>
-            <Text style={{ fontSize: 11, color: '#1565C0', fontWeight: '700' }}>⭐ {totalXp} XP</Text>
-          </View>
-        </View>
-
-        <SabiasQueRotativo />
-        <MascotaTortuga />
-
-        {/* Accesos rápidos */}
-        <Text
-          style={{
-            fontSize: 16,
-            fontWeight: '800',
-            color: '#1A2E1A',
-            marginHorizontal: 20,
-            marginTop: 24,
-            marginBottom: 10,
-          }}
-        >
-          {t('home.learning_units')}
-        </Text>
-
-        <View style={{ paddingHorizontal: 20, gap: 10, paddingBottom: 12 }}>
-          {/* Módulos de estudio */}
-          <Pressable onPress={() => router.push('/(app)/(tabs)/modulos' as any)}>
-            <View
-              style={{
-                backgroundColor: '#FFF',
-                borderRadius: 16,
-                padding: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                borderWidth: 1,
-                borderColor: '#F0EDE8',
-              }}
-            >
-              <View
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#E8F5E9',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 24 }}>🗂️</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
-                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('modules.subtitle')}</Text>
-              </View>
-              <Text style={{ fontSize: 20, color: '#2E7D32' }}>→</Text>
+              <Pressable onPress={toggleLanguage} style={{ backgroundColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+                  {language === 'es' ? '🇪🇸 ES → 🇬🇧 EN' : '🇬🇧 EN → 🇪🇸 ES'}
+                </Text>
+              </Pressable>
             </View>
-          </Pressable>
+          </LinearGradient>
 
-          {/* Diccionario */}
-          <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
-            <View
+          {/* Bienvenida mejorada */}
+          <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ backgroundColor: '#E8F5E9', padding: 10, borderRadius: 50 }}>
+                <Ionicons name="person" size={24} color="#1B5E20" />
+              </View>
+              <View>
+                <Text style={{ fontSize: 18, color: '#1A2E1A', fontWeight: '800' }}>
+                  {t('home.welcome', { name: userName })}
+                </Text>
+                <Text style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{t('home.subtitle')}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Progreso mejorado */}
+          <View style={{ marginHorizontal: 20, marginTop: 20 }}>
+            <LinearGradient
+              colors={['#FFFFFF', '#F9F6F0']}
               style={{
-                backgroundColor: '#FFF',
-                borderRadius: 16,
-                padding: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
+                borderRadius: 20,
+                padding: 18,
                 borderWidth: 1,
-                borderColor: '#F0EDE8',
+                borderColor: '#E8E5E0',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.05,
+                shadowRadius: 8,
+                elevation: 4,
               }}
             >
-              <View
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#FFF3E0',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 24 }}>📖</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="trending-up" size={18} color="#2E7D32" />
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A' }}>{t('home.your_progress')}</Text>
+                </View>
+                <View style={{ backgroundColor: '#E8F5E9', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>
+                    {completedCount} {t('home.of')} {modulesCount} {t('home.modules')}
+                  </Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
-                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('dictionary.subtitle')}</Text>
+              <View style={{ height: 8, backgroundColor: '#E8F5E9', borderRadius: 4, marginTop: 12, overflow: 'hidden' }}>
+                <View style={{ width: `${progressPercent}%`, height: '100%', backgroundColor: '#2E7D32', borderRadius: 4 }} />
               </View>
-              <Text style={{ fontSize: 20, color: '#F59E0B' }}>→</Text>
-            </View>
-          </Pressable>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <Text style={{ fontSize: 12, color: '#888' }}>
+                  {Math.round(progressPercent)}% {t('home.completed')}
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
+                  <Text style={{ fontSize: 12, color: '#1565C0', fontWeight: '700' }}>{totalXp} XP</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </View>
 
-          {/* Juegos */}
-          <Pressable onPress={() => router.push('/(app)/(tabs)/juegos')}>
-            <View
-              style={{
-                backgroundColor: '#FFF',
-                borderRadius: 16,
-                padding: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                borderWidth: 1,
-                borderColor: '#F0EDE8',
-              }}
-            >
-              <View
-                style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 25,
-                  backgroundColor: '#E3F2FD',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 24 }}>🎮</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>
-                <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('games.subtitle')}</Text>
-              </View>
-              <Text style={{ fontSize: 20, color: '#1565C0' }}>→</Text>
-            </View>
-          </Pressable>
-        </View>
+          {/* Sabías que y Tortuga */}
+          <SabiasQueRotativo />
+          <MascotaTortuga />
 
-        <View style={{ height: 30 }} />
+          {/* Accesos rápidos rediseñados */}
+          <View style={{ marginTop: 32, paddingHorizontal: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <Ionicons name="apps" size={22} color="#1B5E20" />
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>{t('home.learning_units')}</Text>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              {/* Módulos de estudio */}
+              <Pressable onPress={() => router.push('/(app)/(tabs)/modulos')}>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F5F9F5']}
+                  style={{
+                    borderRadius: 20,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                    borderWidth: 1,
+                    borderColor: '#E8E5E0',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                >
+                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 28 }}>🗂️</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
+                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('modules.subtitle')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
+                </LinearGradient>
+              </Pressable>
+
+              {/* Diccionario */}
+              <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F9F5F0']}
+                  style={{
+                    borderRadius: 20,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                    borderWidth: 1,
+                    borderColor: '#E8E5E0',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                >
+                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 28 }}>📖</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
+                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('dictionary.subtitle')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
+                </LinearGradient>
+              </Pressable>
+
+              {/* Juegos */}
+              <Pressable onPress={() => router.push('/(app)/(tabs)/juegos')}>
+                <LinearGradient
+                  colors={['#FFFFFF', '#F0F4F9']}
+                  style={{
+                    borderRadius: 20,
+                    padding: 16,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 14,
+                    borderWidth: 1,
+                    borderColor: '#E8E5E0',
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.04,
+                    shadowRadius: 6,
+                    elevation: 2,
+                  }}
+                >
+                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E3F2FD', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 28 }}>🎮</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>
+                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('games.subtitle')}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#1565C0" />
+                </LinearGradient>
+              </Pressable>
+            </View>
+          </View>
+        </Animated.View>
       </ScrollView>
 
-      {/* Modal para completar perfil (traducido) */}
+      {/* Modal mejorado para completar perfil */}
       <Modal visible={showCompleteProfile} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 24 }}>
-          <View style={{ backgroundColor: '#FFF', borderRadius: 20, padding: 25, gap: 15 }}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 24 }}>
+          <View style={{ backgroundColor: '#FFFFFF', borderRadius: 28, padding: 28, gap: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 10 }}>
+            <View style={{ alignItems: 'center' }}>
+              <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="person-add" size={32} color="#1B5E20" />
+              </View>
+            </View>
             <Text style={{ fontSize: 22, fontWeight: '900', color: '#1B5E20', textAlign: 'center' }}>
               {t('profile.complete_title')}
             </Text>
-            <Text style={{ textAlign: 'center', color: '#666' }}>{t('profile.complete_subtitle')}</Text>
+            <Text style={{ textAlign: 'center', color: '#666', fontSize: 14 }}>{t('profile.complete_subtitle')}</Text>
 
             <View>
-              <Text style={{ fontWeight: '700', marginBottom: 5 }}>{t('profile.age_question')}</Text>
+              <Text style={{ fontWeight: '700', marginBottom: 6, color: '#1A2E1A' }}>{t('profile.age_question')}</Text>
               <TextInput
                 value={edad}
                 onChangeText={setEdad}
                 placeholder={t('profile.age_placeholder')}
                 keyboardType="numeric"
-                style={{ backgroundColor: '#F0F0F0', padding: 15, borderRadius: 10 }}
+                style={{ backgroundColor: '#F5F5F5', padding: 16, borderRadius: 14, fontSize: 16 }}
               />
             </View>
 
             <Pressable
               onPress={() => setComunidad(!comunidad)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 10 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}
             >
               <View
                 style={{
@@ -502,26 +524,29 @@ export default function HomeScreen() {
                   alignItems: 'center',
                 }}
               >
-                {comunidad && <Text style={{ color: '#FFF', fontSize: 14 }}>✓</Text>}
+                {comunidad && <Ionicons name="checkmark" size={16} color="#FFFFFF" />}
               </View>
-              <Text style={{ fontWeight: '600' }}>{t('profile.belongs_to_community')}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#1A2E1A' }}>{t('profile.belongs_to_community')}</Text>
             </Pressable>
 
             <Pressable
               onPress={saveProfileExtras}
               disabled={saving || !edad}
-              style={{
-                backgroundColor: '#F59E0B',
-                padding: 18,
-                borderRadius: 12,
-                alignItems: 'center',
-                marginTop: 10,
-              }}
+              style={[
+                {
+                  backgroundColor: '#F59E0B',
+                  padding: 18,
+                  borderRadius: 14,
+                  alignItems: 'center',
+                  marginTop: 8,
+                },
+                (saving || !edad) && { opacity: 0.6 },
+              ]}
             >
               {saving ? (
                 <ActivityIndicator color="#1B5E20" />
               ) : (
-                <Text style={{ fontWeight: '800', color: '#1B5E20' }}>{t('profile.finish_registration')}</Text>
+                <Text style={{ fontWeight: '800', color: '#1B5E20', fontSize: 16 }}>{t('profile.finish_registration')}</Text>
               )}
             </Pressable>
           </View>
