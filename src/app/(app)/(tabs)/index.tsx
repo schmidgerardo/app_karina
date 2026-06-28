@@ -20,7 +20,7 @@ import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useLanguage } from '@/context/LanguageContext';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient'; // Asegúrate de tenerlo instalado: npx expo install expo-linear-gradient
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
 // Constantes
@@ -189,6 +189,7 @@ export default function HomeScreen() {
   const [totalXp, setTotalXp] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
+  const [userAvatar, setUserAvatar] = useState<string | null>(null); // 👈 Nuevo estado para avatar
 
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const [edad, setEdad] = useState('');
@@ -233,12 +234,13 @@ export default function HomeScreen() {
     if (session?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, username, edad, pertenece_comunidad')
+        .select('full_name, username, edad, pertenece_comunidad, avatar_url') // 👈 Añadido avatar_url
         .eq('id', session.user.id)
         .single();
 
       if (profile) {
         setUserName(profile.full_name || profile.username || 'Usuario');
+        setUserAvatar(profile.avatar_url || null); // 👈 Guardar avatar
         if (profile.edad === null || profile.edad === undefined) {
           setShowCompleteProfile(true);
         } else {
@@ -320,12 +322,25 @@ export default function HomeScreen() {
             </View>
           </LinearGradient>
 
-          {/* Bienvenida mejorada */}
+          {/* Bienvenida mejorada CON FOTO DE PERFIL */}
           <View style={{ paddingHorizontal: 24, paddingTop: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={{ backgroundColor: '#E8F5E9', padding: 10, borderRadius: 50 }}>
-                <Ionicons name="person" size={24} color="#1B5E20" />
-              </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {/* Foto de perfil del usuario */}
+              <Image
+                source={
+                  userAvatar
+                    ? { uri: userAvatar }
+                    : require('@/../assets/image.png')
+                }
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 25,
+                  borderWidth: 2,
+                  borderColor: '#F59E0B',
+                }}
+                contentFit="cover"
+              />
               <View>
                 <Text style={{ fontSize: 18, color: '#1A2E1A', fontWeight: '800' }}>
                   {t('home.welcome', { name: userName })}
