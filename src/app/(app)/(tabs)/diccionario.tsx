@@ -1,5 +1,14 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, Text, TextInput, View, Animated, Easing } from 'react-native';
+import { 
+  ActivityIndicator, 
+  FlatList, 
+  Text, 
+  TextInput, 
+  View, 
+  Animated, 
+  Easing,
+  Pressable // 👈 Importante: agregar Pressable
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
@@ -30,6 +39,7 @@ export default function DiccionarioScreen() {
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [playbackProgress, setPlaybackProgress] = useState<{ [key: string]: number }>({});
 
   const player = useAudioPlayer(null);
 
@@ -64,12 +74,24 @@ export default function DiccionarioScreen() {
 
   useEffect(() => {
     const subscription = player.addListener('playbackStatusUpdate', (status) => {
+      if (status.duration && status.currentTime !== undefined) {
+        const progress = status.duration > 0 ? status.currentTime / status.duration : 0;
+        setPlaybackProgress(prev => ({
+          ...prev,
+          [playingId || '']: progress
+        }));
+      }
+      
       if (!status.playing && status.currentTime >= status.duration && status.duration > 0) {
         setPlayingId(null);
+        setPlaybackProgress(prev => ({
+          ...prev,
+          [playingId || '']: 0
+        }));
       }
     });
     return () => subscription.remove();
-  }, [player]);
+  }, [player, playingId]);
 
   async function loadWords() {
     setLoading(true);
@@ -110,6 +132,10 @@ export default function DiccionarioScreen() {
     if (playingId === word.id) {
       player.pause();
       setPlayingId(null);
+      setPlaybackProgress(prev => ({
+        ...prev,
+        [word.id]: 0
+      }));
       return;
     }
 
@@ -253,6 +279,7 @@ export default function DiccionarioScreen() {
         renderItem={({ item, index }) => {
           const isPlaying = playingId === item.id;
           const hasAudio = !!item.audio_url;
+          const progress = playbackProgress[item.id] || 0;
           const significado = language === 'en' && item.significado_ingles 
             ? item.significado_ingles 
             : item.significado_espanol;
@@ -266,64 +293,83 @@ export default function DiccionarioScreen() {
                 marginBottom: 12,
               }}
             >
-              <LinearGradient
-                colors={['#FFFFFF', '#F9F6F0']}
-                style={{
-                  borderRadius: 18,
+              <View style={{
+                backgroundColor: '#FFFFFF',
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: '#F0EDE8',
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.04,
+                shadowRadius: 6,
+                elevation: 2,
+                overflow: 'hidden',
+              }}>
+                {/* Contenido de la tarjeta */}
+                <View style={{
                   padding: 16,
                   flexDirection: 'row',
                   alignItems: 'center',
-                  borderWidth: 1,
-                  borderColor: '#F0EDE8',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.04,
-                  shadowRadius: 6,
-                  elevation: 2,
-                }}
-              >
-                <View style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 12,
-                  backgroundColor: '#E8F5E9',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: 14,
                 }}>
-                  <Text style={{ fontSize: 16, fontWeight: '800', color: '#1B5E20' }}>
-                    {index + 1}
-                  </Text>
+                  <View style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    backgroundColor: '#E8F5E9',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 14,
+                  }}>
+                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1B5E20' }}>
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A2E1A' }}>
+                      {item.palabra_karina}
+                    </Text>
+                    <Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
+                      {significado}
+                    </Text>
+                    {item.modules?.titulo && (
+                      <View style={{ 
+                        backgroundColor: '#F0EDE8', 
+                        borderRadius: 6, 
+                        paddingHorizontal: 8, 
+                        paddingVertical: 2,
+                        alignSelf: 'flex-start',
+                        marginTop: 4,
+                      }}>
+                        <Text style={{ fontSize: 9, color: '#888', fontWeight: '600' }}>
+                          {item.modules.titulo}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                  <DictionaryAudioButton
+                    hasAudio={hasAudio}
+                    isPlaying={isPlaying}
+                    onPress={() => handlePlayAudio(item)}
+                    color="#1B5E20"
+                  />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 17, fontWeight: '800', color: '#1A2E1A' }}>
-                    {item.palabra_karina}
-                  </Text>
-                  <Text style={{ color: '#666', fontSize: 13, marginTop: 2 }}>
-                    {significado}
-                  </Text>
-                  {item.modules?.titulo && (
-                    <View style={{ 
-                      backgroundColor: '#F0EDE8', 
-                      borderRadius: 6, 
-                      paddingHorizontal: 8, 
-                      paddingVertical: 2,
-                      alignSelf: 'flex-start',
-                      marginTop: 4,
-                    }}>
-                      <Text style={{ fontSize: 9, color: '#888', fontWeight: '600' }}>
-                        {item.modules.titulo}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <DictionaryAudioButton
-                  hasAudio={hasAudio}
-                  isPlaying={isPlaying}
-                  onPress={() => handlePlayAudio(item)}
-                  color="#1B5E20"
-                />
-              </LinearGradient>
+
+                {/* Barra de progreso del audio */}
+                {isPlaying && hasAudio && (
+                  <View style={{
+                    height: 4,
+                    backgroundColor: '#F0EDE8',
+                    width: '100%',
+                  }}>
+                    <Animated.View style={{
+                      height: '100%',
+                      width: `${progress * 100}%`,
+                      backgroundColor: '#F59E0B',
+                      borderRadius: 2,
+                    }} />
+                  </View>
+                )}
+              </View>
             </Animated.View>
           );
         }}
