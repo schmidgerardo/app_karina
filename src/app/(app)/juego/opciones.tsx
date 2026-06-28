@@ -6,41 +6,53 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useDatabaseContext } from '@/context/DatabaseContext';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/context/LanguageContext';
 
 // ─── Constantes de juego ──────────────────────────────────────────────────────
-const TARGET_SUCCESSES = 2;   // Módulo 3: máximo 2 aciertos requeridos
-const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
-const XP_PER_SUCCESS = 10;    // Módulo 5: XP por acierto
+const TOTAL_ROUNDS = 2;        // Módulo 3: máximo 2 rondas
+const XP_THRESHOLD = 0.7;      // Módulo 5: umbral del 70%
+const XP_PER_CORRECT = 50;     // Módulo 5: XP por palabra correcta
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
+  significado_ingles?: string;
   audio_url: string | null;
 }
 
-export default function JuegoOpcionesScreen() {
+interface AnagramLetter {
+  id: string;
+  char: string;
+  isSelected: boolean;
+}
+
+export default function JuegoDictadoScreen() {
   const router = useRouter();
+  const { modulo_id } = useLocalSearchParams();
   const { session } = useSession();
   const { enqueuePendingScore } = useDatabaseContext();
-  const { modulo_id } = useLocalSearchParams();
+  const { t } = useTranslation();
+  const { language } = useLanguage();
 
-  // Parse and normalize modulo_id
   const parsedModuloId = modulo_id
     ? (/^\d+$/.test(String(modulo_id)) ? parseInt(String(modulo_id), 10) : String(modulo_id))
     : null;
 
   const [allWords, setAllWords] = useState<Word[]>([]);
   const [target, setTarget] = useState<Word | null>(null);
-  const [options, setOptions] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
-  const [successCount, setSuccessCount] = useState(0);
-  const [totalQuestions, setTotalQuestions] = useState(0);
+  const [lettersPool, setLettersPool] = useState<AnagramLetter[]>([]);
+  const [assembledLetters, setAssembledLetters] = useState<AnagramLetter[]>([]);
+  
+  const [round, setRound] = useState(1);
   const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [roundChecked, setRoundChecked] = useState(false);
+  const [roundCorrect, setRoundCorrect] = useState(false);
   const [gameOver, setGameOver] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
 
@@ -61,7 +73,7 @@ export default function JuegoOpcionesScreen() {
 
       let query = supabase
         .from('words')
-        .select('id, palabra_karina, significado_espanol, audio_url');
+        .select('id, palabra_karina, significado_espanol, audio_url, significado_ingles');
 
       if (parsedModuloId !== null) {
         query = query.eq('modulo_id', parsedModuloId);
@@ -72,7 +84,7 @@ export default function JuegoOpcionesScreen() {
       const { data, error: fetchError } = await query;
 
       if (fetchError) {
-        console.error('Error fetching words in Opciones:', fetchError);
+        console.error('Error fetching words in Dictado:', fetchError);
         setError('No se pudo conectar a la base de datos.');
         setLoading(false);
         return;
@@ -80,36 +92,37 @@ export default function JuegoOpcionesScreen() {
 
       if (data && data.length >= 4) {
         setAllWords(data as Word[]);
-        startRound(data as Word[], 0);
+        startRound(data as Word[], 1);
       } else {
-        setAllWords([]); // Triggers the Escudo Protector
+        setAllWords([]);
       }
     } catch (e) {
-      console.error('Excepción al cargar palabras en Opciones:', e);
+      console.error('Excepción al cargar palabras en Dictado:', e);
       setError('Ocurrió un error inesperado.');
     } finally {
       setLoading(false);
     }
   }
 
-  function startRound(wordsPool: Word[], currentSuccesses: number) {
+  function startRound(wordsPool: Word[], currentRound: number) {
     if (!wordsPool || wordsPool.length < 4) return;
 
-    // Pick a random target word that has an audio URL if possible
     const wordsWithAudio = wordsPool.filter(w => w.audio_url);
     const selectionPool = wordsWithAudio.length > 0 ? wordsWithAudio : wordsPool;
     const t = selectionPool[Math.floor(Math.random() * selectionPool.length)];
 
-    // Get 2 distractors from the pool (excluding the target)
-    const distractors = shuffleArray(wordsPool.filter(w => w.id !== t.id)).slice(0, 2);
-    const opts = shuffleArray([t, ...distractors]);
-
     setTarget(t);
-    setOptions(opts);
-    setSelectedId(null);
-    setChecked(false);
+    setRoundChecked(false);
+    setRoundCorrect(false);
+    setAssembledLetters([]);
 
-    // Auto-play the audio
+    const letters = t.palabra_karina.split('').map((char, index) => ({
+      id: `${char}-${index}`,
+      char,
+      isSelected: false,
+    }));
+    setLettersPool(shuffleArray(letters));
+
     if (t.audio_url) {
       setTimeout(() => {
         playAudio(t.audio_url!);
@@ -131,97 +144,125 @@ export default function JuegoOpcionesScreen() {
       await player.replace(url);
       await player.play();
     } catch (err) {
-      console.error('Error playing audio in opciones:', err);
+      console.error('Error playing audio in dictado:', err);
     }
   };
 
-  const handleSelect = (opt: Word) => {
-    if (checked) return;
-    setSelectedId(opt.id);
-    setChecked(true);
-    setTotalQuestions(q => q + 1);
+  const handleSelectLetter = (letter: AnagramLetter) => {
+    if (roundChecked || letter.isSelected) return;
 
-    const isCorrect = opt.id === target?.id;
-    if (isCorrect) {
-      const nextSuccesses = successCount + 1;
-      setSuccessCount(nextSuccesses);
-      setScore(s => s + XP_PER_SUCCESS);
+    setLettersPool(prev => prev.map(l => l.id === letter.id ? { ...l, isSelected: true } : l));
+    setAssembledLetters(prev => [...prev, letter]);
+  };
 
+  const handleRemoveLetter = (letter: AnagramLetter) => {
+    if (roundChecked) return;
+
+    setAssembledLetters(prev => prev.filter(l => l.id !== letter.id));
+    setLettersPool(prev => prev.map(l => l.id === letter.id ? { ...l, isSelected: false } : l));
+  };
+
+  const handleClear = () => {
+    if (roundChecked) return;
+    setAssembledLetters([]);
+    setLettersPool(prev => prev.map(l => ({ ...l, isSelected: false })));
+  };
+
+  const handleCheck = () => {
+    if (!target) return;
+    const attempt = assembledLetters.map(l => l.char).join('');
+    const correct = attempt.toLowerCase() === target.palabra_karina.toLowerCase();
+
+    setRoundCorrect(correct);
+    setRoundChecked(true);
+
+    if (correct) {
+      setScore(s => s + XP_PER_CORRECT);
+      setCorrectCount(c => c + 1);
       setTimeout(() => {
-        // Módulo 3: usar TARGET_SUCCESSES en lugar de 3
-        if (nextSuccesses >= TARGET_SUCCESSES) {
-          setGameOver(true);
-          handleSaveProgress(nextSuccesses);
-        } else {
-          startRound(allWords, nextSuccesses);
-        }
-      }, 1200);
+        handleNextStep();
+      }, 1500);
+    }
+  };
+
+  const handleNextStep = () => {
+    if (round >= TOTAL_ROUNDS) {
+      setGameOver(true);
+      if (parsedModuloId !== null) {
+        saveProgressToDatabase();
+      }
     } else {
-      setTimeout(() => {
-        startRound(allWords, successCount);
-      }, 2000);
+      const nextR = round + 1;
+      setRound(nextR);
+      startRound(allWords, nextR);
     }
   };
 
-  // ── Módulo 5: Guardar XP con umbral del 70% ──────────────────────────────────
-  async function handleSaveProgress(aciertos: number) {
-    if (parsedModuloId === null || !session?.user?.id) return;
+  async function saveProgressToDatabase() {
+    if (!session?.user?.id || parsedModuloId === null) return;
 
     const userId = session.user.id;
-    const pctAciertos = TARGET_SUCCESSES > 0 ? aciertos / TARGET_SUCCESSES : 0;
-    if (pctAciertos < XP_THRESHOLD) return; // No superado, no guardar XP
+    const pctAciertos = score / (TOTAL_ROUNDS * XP_PER_CORRECT);
+    if (pctAciertos < XP_THRESHOLD) {
+      console.log(`[DICTADO] Umbral no superado: ${Math.round(pctAciertos * 100)}% < 70%`);
+      return;
+    }
 
-    const xpGanado = aciertos * XP_PER_SUCCESS;
+    const dynamicXp = score;
 
     try {
       setSavingProgress(true);
-      const { data: existing } = await supabase
+
+      const { data: existingProgress, error: fetchError } = await supabase
         .from('module_progress')
-        .select('id, xp')
+        .select('*')
         .eq('user_id', userId)
         .eq('modulo_id', parsedModuloId)
         .maybeSingle();
 
-      if (existing) {
+      if (fetchError) {
+        console.error('Error fetching progress:', fetchError);
+      }
+
+      if (existingProgress) {
         await supabase
           .from('module_progress')
           .update({
-            xp: (existing.xp || 0) + xpGanado,
             completed: true,
+            xp: (existingProgress.xp || 0) + dynamicXp,
             completed_at: new Date().toISOString(),
           })
-          .eq('id', existing.id);
+          .eq('id', existingProgress.id);
       } else {
         await supabase.from('module_progress').insert({
           user_id: userId,
           modulo_id: parsedModuloId,
-          xp: xpGanado,
           completed: true,
+          xp: dynamicXp,
           completed_at: new Date().toISOString(),
         });
       }
-    } catch (err) {
-      // Sin conexión → encolar en SQLite (Módulo 1)
-      console.warn('[OPCIONES] Sin conexión, encolando score offline:', err);
-      await enqueuePendingScore(userId, Number(parsedModuloId), xpGanado);
+    } catch (e) {
+      console.warn('[DICTADO] Sin conexión, encolando score offline:', e);
+      await enqueuePendingScore(userId, Number(parsedModuloId), dynamicXp);
     } finally {
       setSavingProgress(false);
     }
   }
 
-  const handleGoToDictation = () => {
+  const handleFinishGame = () => {
     if (parsedModuloId !== null) {
-      router.push(`/juego/dictado?modulo_id=${parsedModuloId}`);
+      router.replace(`/modulo/${parsedModuloId}`);
     } else {
-      router.push('/juego/dictado');
+      router.replace('/(tabs)/juegos');
     }
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1565C0" />
-        <Text style={styles.loadingText}>Cargando desafío...</Text>
+        <ActivityIndicator size="large" color="#E65100" />
+        <Text style={styles.loadingText}>{t('games.loading')}</Text>
       </SafeAreaView>
     );
   }
@@ -232,12 +273,12 @@ export default function JuegoOpcionesScreen() {
       <SafeAreaView style={styles.fallbackContainer}>
         <View style={styles.fallbackCard}>
           <Text style={styles.fallbackEmoji}>⚠️</Text>
-          <Text style={styles.fallbackTitle}>No hay suficientes palabras</Text>
+          <Text style={styles.fallbackTitle}>{t('games.insufficient_words')}</Text>
           <Text style={styles.fallbackDescription}>
-            Este módulo no cuenta con palabras suficientes para iniciar este minijuego (se requieren al menos 4).
+            {t('games.insufficient_words_desc')}
           </Text>
           <Pressable onPress={() => router.back()} style={styles.fallbackButton}>
-            <Text style={styles.fallbackButtonText}>Volver al menú</Text>
+            <Text style={styles.fallbackButtonText}>{t('games.back_menu')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -245,61 +286,71 @@ export default function JuegoOpcionesScreen() {
   }
 
   if (gameOver) {
-    // Módulo 5: calcular porcentaje de aciertos
-    const pctAciertos = TARGET_SUCCESSES > 0 ? successCount / TARGET_SUCCESSES : 0;
+    const pctAciertos = TOTAL_ROUNDS > 0 ? score / (TOTAL_ROUNDS * XP_PER_CORRECT) : 0;
     const passed = pctAciertos >= XP_THRESHOLD;
-    const xpGanado = passed ? successCount * XP_PER_SUCCESS : 0;
 
     return (
       <SafeAreaView style={styles.victoryContainer}>
         <View style={styles.victoryCard}>
           {passed ? (
             <>
-              <Text style={styles.victoryEmoji}>🎉</Text>
-              <Text style={styles.victoryTitle}>¡Buen trabajo!</Text>
-              <Text style={styles.victorySubtitle}>Acertaste {successCount} de {TARGET_SUCCESSES} palabras</Text>
-              <View style={styles.scoreBadge}>
-                <Text style={styles.scoreText}>⭐ {score} pts</Text>
-              </View>
-              {parsedModuloId !== null && (
-                <View style={[styles.scoreBadge, { backgroundColor: '#E8F5E9', borderColor: '#81C784', marginTop: 8 }]}>
-                  <Text style={[styles.scoreText, { color: '#2E7D32' }]}>+{xpGanado} XP</Text>
+              <Text style={styles.victoryEmoji}>🏆</Text>
+              <Text style={styles.victoryTitle}>{t('dictado.victory_title')}</Text>
+              <Text style={styles.victorySubtitle}>{t('dictado.victory_subtitle')}</Text>
+
+              <View style={styles.rewardsContainer}>
+                <View style={styles.rewardBox}>
+                  <Text style={styles.rewardValue}>⭐ {score}</Text>
+                  <Text style={styles.rewardLabel}>{t('games.score')}</Text>
                 </View>
-              )}
+                {parsedModuloId !== null && (
+                  <View style={styles.rewardBox}>
+                    <Text style={[styles.rewardValue, { color: '#2E7D32' }]}>+{score}</Text>
+                    <Text style={styles.rewardLabel}>{t('games.xp_earned')}</Text>
+                  </View>
+                )}
+              </View>
+
               <Pressable
-                onPress={handleGoToDictation}
-                style={[styles.victoryButton, savingProgress && { opacity: 0.7 }]}
+                onPress={handleFinishGame}
+                style={styles.victoryButton}
                 disabled={savingProgress}
               >
-                {savingProgress
-                  ? <ActivityIndicator color="#FFFFFF" size="small" />
-                  : <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
-                }
+                {savingProgress ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.victoryButtonText}>{t('games.finish')}</Text>
+                )}
               </Pressable>
             </>
           ) : (
             <>
               <Text style={styles.victoryEmoji}>😓</Text>
-              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>Sección no superada</Text>
+              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>{t('games.not_passed')}</Text>
               <Text style={[styles.victorySubtitle, { textAlign: 'center', marginTop: 8 }]}>
-                Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!
+                {t('games.not_passed_desc')}
               </Text>
-              <View style={[styles.scoreBadge, { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A', marginTop: 16 }]}>
-                <Text style={[styles.scoreText, { color: '#C62828' }]}>
-                  {successCount} / {TARGET_SUCCESSES} correctos ({Math.round(pctAciertos * 100)}%)
-                </Text>
+              <View style={[styles.rewardsContainer]}>
+                <View style={[styles.rewardBox, { borderColor: '#EF9A9A', backgroundColor: '#FFEBEE' }]}>
+                  <Text style={[styles.rewardValue, { color: '#C62828' }]}>
+                    {Math.round(pctAciertos * 100)}%
+                  </Text>
+                  <Text style={[styles.rewardLabel, { color: '#C62828' }]}>
+                    {t('games.successes_of', { current: correctCount, total: TOTAL_ROUNDS })}
+                  </Text>
+                </View>
               </View>
               <Pressable
                 onPress={() => {
                   setGameOver(false);
-                  setSuccessCount(0);
-                  setTotalQuestions(0);
+                  setRound(1);
                   setScore(0);
-                  startRound(allWords, 0);
+                  setCorrectCount(0);
+                  startRound(allWords, 1);
                 }}
                 style={[styles.victoryButton, { backgroundColor: '#C62828' }]}
               >
-                <Text style={styles.victoryButtonText}>Reintentar</Text>
+                <Text style={styles.victoryButtonText}>{t('games.retry')}</Text>
               </Pressable>
             </>
           )}
@@ -308,37 +359,39 @@ export default function JuegoOpcionesScreen() {
     );
   }
 
-  const labels = ['A', 'B', 'C'];
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Módulo 4: router.replace para destruir pila de navegación */}
         <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
-          <Text style={styles.backButtonText}>← Salir</Text>
+          <Text style={styles.backButtonText}>{t('games.exit')}</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>🎧 Escucha y elige</Text>
+        <Text style={styles.headerTitle}>{t('dictado.title')}</Text>
         <View style={styles.headerStats}>
           <View style={styles.statBadge}>
-            {/* Módulo 3: mostrar TARGET_SUCCESSES */}
-            <Text style={styles.statLabel}>Aciertos: {successCount} de {TARGET_SUCCESSES}</Text>
+            <Text style={styles.statLabel}>
+              {t('games.word_of', { current: round, total: TOTAL_ROUNDS })}
+            </Text>
           </View>
           <View style={styles.statBadge}>
-            <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>
+            <Text style={styles.scoreHighlight}>⭐ {score} {t('games.score')}</Text>
           </View>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Text style={styles.instructions}>
-          Escucha el audio y selecciona la traducción Kariña correcta
+          {t('dictado.instructions')}
         </Text>
 
-        {/* Audio Player Card */}
+        {/* Audio Card */}
         <View style={styles.audioCard}>
-          <Text style={styles.audioCardSubtitle}>Significado en Español:</Text>
-          <Text style={styles.targetMeaning}>{target?.significado_espanol}</Text>
+          <Text style={styles.audioCardSubtitle}>{t('common.spanish_clue')}</Text>
+          <Text style={styles.targetMeaning}>
+            {language === 'en' && target?.significado_ingles
+              ? target.significado_ingles
+              : target?.significado_espanol}
+          </Text>
 
           <Pressable
             onPress={() => target?.audio_url && playAudio(target.audio_url)}
@@ -348,55 +401,112 @@ export default function JuegoOpcionesScreen() {
             <Text style={styles.playIcon}>{isPlaying ? '⏸️' : '▶️'}</Text>
           </Pressable>
           <Text style={styles.playHint}>
-            {target?.audio_url ? 'Toca para reproducir pronunciación' : 'Audio no disponible'}
+            {target?.audio_url ? t('common.listen_again') : t('common.no_audio')}
           </Text>
         </View>
 
-        {/* Options */}
-        <View style={styles.optionsContainer}>
-          {options.map((opt, idx) => {
-            const isSelected = selectedId === opt.id;
-            const isCorrect = opt.id === target?.id;
+        {/* Assembled Letters Section */}
+        <View style={styles.assembledSection}>
+          <View style={styles.assembledContainer}>
+            {assembledLetters.length === 0 ? (
+              <Text style={styles.placeholderText}>Toca las letras de abajo...</Text>
+            ) : (
+              <View style={styles.lettersRow}>
+                {assembledLetters.map((letter) => {
+                  let borderCol = '#E65100';
+                  let bgCol = '#FFFFFF';
+                  let textCol = '#E65100';
 
-            let cardStyle = styles.optionCard;
-            let labelBadgeStyle = styles.labelBadge;
-            let labelTextStyle = styles.labelText;
+                  if (roundChecked) {
+                    borderCol = roundCorrect ? '#2E7D32' : '#C62828';
+                    bgCol = roundCorrect ? '#E8F5E9' : '#FFEBEE';
+                    textCol = roundCorrect ? '#2E7D32' : '#C62828';
+                  }
 
-            if (checked) {
-              if (isCorrect) {
-                cardStyle = [styles.optionCard, styles.correctOptionCard];
-                labelBadgeStyle = [styles.labelBadge, styles.correctLabelBadge];
-                labelTextStyle = styles.correctLabelText;
-              } else if (isSelected) {
-                cardStyle = [styles.optionCard, styles.incorrectOptionCard];
-                labelBadgeStyle = [styles.labelBadge, styles.incorrectLabelBadge];
-                labelTextStyle = styles.incorrectLabelText;
-              }
-            } else if (isSelected) {
-              cardStyle = [styles.optionCard, styles.selectedOptionCard];
-              labelBadgeStyle = [styles.labelBadge, styles.selectedLabelBadge];
-              labelTextStyle = styles.selectedLabelText;
-            }
+                  return (
+                    <Pressable
+                      key={letter.id}
+                      onPress={() => handleRemoveLetter(letter)}
+                      disabled={roundChecked}
+                      style={[styles.letterSquare, { borderColor: borderCol, backgroundColor: bgCol }]}
+                    >
+                      <Text style={[styles.letterText, { color: textCol }]}>{letter.char}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
-            return (
+          {assembledLetters.length > 0 && !roundChecked && (
+            <Pressable onPress={handleClear} style={styles.clearButton}>
+              <Text style={styles.clearButtonText}>{t('common.clear')}</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {/* Feedback Alert */}
+        {roundChecked && (
+          <View
+            style={[
+              styles.feedbackAlert,
+              { backgroundColor: roundCorrect ? '#E8F5E9' : '#FFEBEE', borderColor: roundCorrect ? '#81C784' : '#E57373' },
+            ]}
+          >
+            <Text style={[styles.feedbackAlertText, { color: roundCorrect ? '#2E7D32' : '#C62828' }]}>
+              {roundCorrect
+                ? t('games.correct')
+                : `${t('games.incorrect')} ${target?.palabra_karina}`}
+            </Text>
+          </View>
+        )}
+
+        {/* Letters Scrambled Pool */}
+        {!roundChecked && (
+          <View style={styles.poolContainer}>
+            {lettersPool.map((letter) => (
               <Pressable
-                key={opt.id}
-                onPress={() => handleSelect(opt)}
-                disabled={checked}
-                style={cardStyle}
+                key={letter.id}
+                onPress={() => handleSelectLetter(letter)}
+                disabled={letter.isSelected}
+                style={[
+                  styles.poolLetterSquare,
+                  letter.isSelected && styles.poolLetterSquareSelected,
+                ]}
               >
-                <View style={labelBadgeStyle}>
-                  <Text style={labelTextStyle}>{labels[idx]}</Text>
-                </View>
-                <View style={styles.optionContent}>
-                  <Text style={styles.optionWord}>{opt.palabra_karina}</Text>
-                  <Text style={styles.optionMeaning}>{opt.significado_espanol}</Text>
-                </View>
-                {checked && isCorrect && <Text style={styles.checkIcon}>✅</Text>}
-                {checked && isSelected && !isCorrect && <Text style={styles.checkIcon}>❌</Text>}
+                <Text
+                  style={[
+                    styles.poolLetterText,
+                    letter.isSelected && styles.poolLetterTextSelected,
+                  ]}
+                >
+                  {letter.char}
+                </Text>
               </Pressable>
-            );
-          })}
+            ))}
+          </View>
+        )}
+
+        {/* Action Button */}
+        <View style={styles.actionContainer}>
+          {!roundChecked ? (
+            <Pressable
+              onPress={handleCheck}
+              disabled={assembledLetters.length === 0}
+              style={[
+                styles.actionButton,
+                assembledLetters.length === 0 && styles.actionButtonDisabled,
+              ]}
+            >
+              <Text style={styles.actionButtonText}>{t('common.verify')}</Text>
+            </Pressable>
+          ) : (
+            !roundCorrect && (
+              <Pressable onPress={handleNextStep} style={styles.actionButton}>
+                <Text style={styles.actionButtonText}>{t('common.continue')}</Text>
+              </Pressable>
+            )
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -427,7 +537,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 15,
     fontWeight: '600',
-    color: '#1565C0',
+    color: '#E65100',
   },
   fallbackContainer: {
     flex: 1,
@@ -458,7 +568,7 @@ const styles = StyleSheet.create({
   fallbackTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: '#1565C0',
+    color: '#E65100',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -470,7 +580,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   fallbackButton: {
-    backgroundColor: '#1565C0',
+    backgroundColor: '#E65100',
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 30,
@@ -518,23 +628,40 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
-  scoreBadge: {
-    backgroundColor: '#FFF8E1',
-    borderWidth: 1,
-    borderColor: '#FFE082',
-    borderRadius: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    marginTop: 14,
-    marginBottom: 24,
+  rewardsContainer: {
+    flexDirection: 'row',
+    gap: 16,
+    marginVertical: 24,
+    width: '100%',
+    justifyContent: 'center',
   },
-  scoreText: {
-    color: '#F59E0B',
-    fontSize: 20,
+  rewardBox: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  rewardValue: {
+    fontSize: 22,
     fontWeight: '900',
+    color: '#F59E0B',
+  },
+  rewardLabel: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 4,
+    fontWeight: '600',
   },
   victoryButton: {
-    backgroundColor: '#1565C0',
+    backgroundColor: '#E65100',
     borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 40,
@@ -547,7 +674,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   header: {
-    backgroundColor: '#1565C0',
+    backgroundColor: '#E65100',
     paddingHorizontal: 20,
     paddingTop: 12,
     paddingBottom: 18,
@@ -635,13 +762,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   playButton: {
-    backgroundColor: '#1565C0',
+    backgroundColor: '#E65100',
     borderRadius: 45,
     width: 90,
     height: 90,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1565C0',
+    shadowColor: '#E65100',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
     shadowRadius: 10,
@@ -649,11 +776,11 @@ const styles = StyleSheet.create({
   },
   playButtonPressed: {
     transform: [{ scale: 0.95 }],
-    backgroundColor: '#0D47A1',
+    backgroundColor: '#BF360C',
   },
   playIcon: {
     fontSize: 36,
-    marginLeft: 4, // centering visual fix for play arrow
+    marginLeft: 4,
   },
   playHint: {
     fontSize: 12,
@@ -661,83 +788,129 @@ const styles = StyleSheet.create({
     marginTop: 14,
     fontWeight: '500',
   },
-  optionsContainer: {
+  assembledSection: {
     width: '100%',
     maxWidth: 360,
-    gap: 12,
-  },
-  optionCard: {
-    flexDirection: 'row',
     alignItems: 'center',
+    marginBottom: 20,
+  },
+  assembledContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
     borderWidth: 2,
     borderColor: '#EFECE6',
+    borderRadius: 16,
+    minHeight: 80,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  placeholderText: {
+    color: '#AAA',
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  lettersRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  letterSquare: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  letterText: {
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  clearButton: {
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  clearButtonText: {
+    color: '#E65100',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  feedbackAlert: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  feedbackAlertText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  poolContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 24,
+  },
+  poolLetterSquare: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#EFECE6',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
     shadowRadius: 4,
     elevation: 1,
   },
-  selectedOptionCard: {
-    borderColor: '#1565C0',
-    backgroundColor: '#E3F2FD',
-  },
-  correctOptionCard: {
-    borderColor: '#2E7D32',
-    backgroundColor: '#E8F5E9',
-  },
-  incorrectOptionCard: {
-    borderColor: '#C62828',
-    backgroundColor: '#FFEBEE',
-  },
-  labelBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+  poolLetterSquareSelected: {
     backgroundColor: '#F0EDE8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
+    borderColor: '#F0EDE8',
+    opacity: 0.4,
   },
-  selectedLabelBadge: {
-    backgroundColor: '#1565C0',
-  },
-  correctLabelBadge: {
-    backgroundColor: '#2E7D32',
-  },
-  incorrectLabelBadge: {
-    backgroundColor: '#C62828',
-  },
-  labelText: {
-    fontSize: 15,
+  poolLetterText: {
+    fontSize: 20,
     fontWeight: '800',
     color: '#1A2E1A',
   },
-  selectedLabelText: {
+  poolLetterTextSelected: {
+    color: '#AAA',
+  },
+  actionContainer: {
+    width: '100%',
+    maxWidth: 360,
+    marginBottom: 20,
+  },
+  actionButton: {
+    backgroundColor: '#E65100',
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  actionButtonDisabled: {
+    backgroundColor: '#EFECE6',
+  },
+  actionButtonText: {
     color: '#FFFFFF',
-  },
-  correctLabelText: {
-    color: '#FFFFFF',
-  },
-  incorrectLabelText: {
-    color: '#FFFFFF',
-  },
-  optionContent: {
-    flex: 1,
-  },
-  optionWord: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#1A2E1A',
-  },
-  optionMeaning: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  checkIcon: {
-    fontSize: 22,
   },
 });

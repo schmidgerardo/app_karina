@@ -80,15 +80,19 @@
     "next_game": "Next Game",
     "finish": "Finish practice",
     "correct": "Excellent work! Correct!",
-    "round_of": "Round {{current}} of {{total}}",
     "word_of": "Word {{current}} of {{total}}",
-    "successes_of": "Correct: {{current}} of {{total}}"
+    "successes_of": "Correct: {{current}} of {{total}}",
+    "correct_lower": "correct",
+    "is": "is",
+    "round_of": "Round {{current}} of {{total}}"
   },
   "unir": {
     "title": "🔗 Match the words",
     "instructions": "Drag from Kariña to Spanish or tap both to match them",
     "victory_title": "Challenge Completed!",
-    "victory_subtitle": "Score obtained"
+    "victory_subtitle": "Score obtained",
+    "tap_karina_first": "Tap a Kariña word first",
+    "drag_to_correct": "Connect to the correct word"
   },
   "opciones": {
     "title": "🎧 Listen and choose",

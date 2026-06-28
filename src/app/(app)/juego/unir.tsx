@@ -8,17 +8,20 @@ import Svg, { Line } from 'react-native-svg';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useDatabaseContext } from '@/context/DatabaseContext';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/context/LanguageContext';
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
+  significado_ingles?: string;  // 👈 Añadido
 }
 
 interface WordBox {
   word: string;
-  x: number; // pageX (absolute)
-  y: number; // pageY (absolute)
+  x: number;
+  y: number;
   width: number;
   height: number;
 }
@@ -26,17 +29,18 @@ interface WordBox {
 const AnimatedLine = Animated.createAnimatedComponent(Line);
 
 // ─── Constantes de juego ──────────────────────────────────────────────────────
-const TOTAL_ROUNDS = 2;        // Módulo 3: máximo 2 rondas
-const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
-const XP_PER_MATCH = 10;       // Módulo 5: XP por par correcto
+const TOTAL_ROUNDS = 2;
+const XP_THRESHOLD = 0.7;
+const XP_PER_MATCH = 10;
 
 export default function JuegoUnirScreen() {
   const router = useRouter();
   const { session } = useSession();
   const { enqueuePendingScore } = useDatabaseContext();
   const { modulo_id } = useLocalSearchParams();
+  const { t } = useTranslation();
+  const { language } = useLanguage();
 
-  // Parse and normalize modulo_id (could be number or uuid string)
   const parsedModuloId = modulo_id
     ? (/^\d+$/.test(String(modulo_id)) ? parseInt(String(modulo_id), 10) : String(modulo_id))
     : null;
@@ -61,17 +65,14 @@ export default function JuegoUnirScreen() {
   const [karinaList, setKarinaList] = useState<string[]>([]);
   const [espanolList, setEspanolList] = useState<string[]>([]);
 
-  // Page offsets for aligning absolute page coordinates to the SVG local coordinates
   const [containerOffset, setContainerOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef<View>(null);
 
-  // References and boxes coordinates
   const karinaRefs = useRef<Record<string, View | null>>({});
   const espanolRefs = useRef<Record<string, View | null>>({});
   const [karinaBoxes, setKarinaBoxes] = useState<Record<string, WordBox>>({});
   const [espanolBoxes, setEspanolBoxes] = useState<Record<string, WordBox>>({});
 
-  // Shared values for the dragging line
   const startX = useSharedValue(0);
   const startY = useSharedValue(0);
   const endX = useSharedValue(0);
@@ -95,7 +96,7 @@ export default function JuegoUnirScreen() {
 
       let query = supabase
         .from('words')
-        .select('id, palabra_karina, significado_espanol');
+        .select('id, palabra_karina, significado_espanol, significado_ingles'); // 👈 Añadido
 
       if (parsedModuloId !== null) {
         query = query.eq('modulo_id', parsedModuloId);
@@ -117,7 +118,7 @@ export default function JuegoUnirScreen() {
         setAllWords(shuffled);
         startNewRound(shuffled, 1);
       } else {
-        setAllWords([]); // This triggers the Escudo Protector
+        setAllWords([]);
       }
     } catch (e) {
       console.error('Excepción al cargar palabras:', e);
@@ -130,9 +131,7 @@ export default function JuegoUnirScreen() {
   function startNewRound(wordsPool: Word[], currentRound: number) {
     if (!wordsPool || wordsPool.length < 4) return;
 
-    // Get 4 random words from pool for this round
     const selected = shuffleArray([...wordsPool]).slice(0, 4);
-    // Acumular el total posible de emparejamientos
     setTotalPossible(prev => prev + selected.length);
     setCurrentWords(selected);
     setMatchedKarina(new Set());
@@ -142,12 +141,14 @@ export default function JuegoUnirScreen() {
     setFeedback(null);
 
     const karinas = selected.map(w => w.palabra_karina);
-    const espanols = selected.map(w => w.significado_espanol);
+    // 👇 Usar significado traducido según idioma
+    const espanols = selected.map(w =>
+      language === 'en' && w.significado_ingles ? w.significado_ingles : w.significado_espanol
+    );
 
     setKarinaList(shuffleArray(karinas));
     setEspanolList(shuffleArray(espanols));
 
-    // Clear boxes, they will be measured again on layout
     setKarinaBoxes({});
     setEspanolBoxes({});
   }
@@ -177,7 +178,6 @@ export default function JuegoUnirScreen() {
   };
 
   function nextRound() {
-    // Módulo 3: máximo TOTAL_ROUNDS rondas
     if (round >= TOTAL_ROUNDS) {
       setGameOver(true);
       handleSaveProgress();
@@ -187,12 +187,11 @@ export default function JuegoUnirScreen() {
     startNewRound(allWords, round + 1);
   }
 
-  // ── Módulo 5: Guardar XP con umbral del 70% ──────────────────────────────────
   async function handleSaveProgress() {
     if (parsedModuloId === null || !session?.user?.id) return;
 
     const userId = session.user.id;
-    const xpGanado = score; // score acumulado = matches * XP_PER_MATCH
+    const xpGanado = score;
 
     try {
       setSavingProgress(true);
@@ -222,7 +221,6 @@ export default function JuegoUnirScreen() {
         });
       }
     } catch (err) {
-      // Sin conexión → encolar en SQLite (Módulo 1)
       console.warn('[UNIR] Sin conexión, encolando score offline:', err);
       await enqueuePendingScore(userId, Number(parsedModuloId), xpGanado);
     } finally {
@@ -239,15 +237,18 @@ export default function JuegoUnirScreen() {
     if (isProcessing) return;
 
     const pair = currentWords.find(w => w.palabra_karina === karinaWord);
-
     if (!pair) {
-      showFeedback('❌ Error interno', 'error');
+      showFeedback('❌ ' + t('common.error'), 'error');
       resetLine();
       return;
     }
 
-    if (pair.significado_espanol === espanolWord) {
-      showFeedback('✅ ¡Correcto! +' + XP_PER_MATCH + ' puntos', 'success');
+    const targetEspanol = language === 'en' && pair.significado_ingles
+      ? pair.significado_ingles
+      : pair.significado_espanol;
+
+    if (targetEspanol === espanolWord) {
+      showFeedback(`✅ ${t('games.correct')} +${XP_PER_MATCH} ${t('games.score')}`, 'success');
       setMatchedKarina(prev => new Set([...prev, karinaWord]));
       setMatchedEspanol(prev => new Set([...prev, espanolWord]));
       setMatchedPairs(prev => [...prev, { karina: karinaWord, espanol: espanolWord }]);
@@ -257,7 +258,6 @@ export default function JuegoUnirScreen() {
 
       if (matchedKarina.size + 1 === currentWords.length) {
         setTimeout(() => {
-          // Módulo 3: usar TOTAL_ROUNDS
           if (round >= TOTAL_ROUNDS) {
             setGameOver(true);
             handleSaveProgress();
@@ -268,7 +268,10 @@ export default function JuegoUnirScreen() {
       }
     } else {
       const correctMatch = currentWords.find(w => w.palabra_karina === karinaWord);
-      showFeedback(`❌ "${karinaWord}" es "${correctMatch?.significado_espanol}"`, 'error');
+      const correctText = language === 'en' && correctMatch?.significado_ingles
+        ? correctMatch.significado_ingles
+        : correctMatch?.significado_espanol;
+      showFeedback(`❌ "${karinaWord}" ${t('games.is')} "${correctText}"`, 'error');
       lineColor.value = '#F44336';
     }
 
@@ -285,7 +288,6 @@ export default function JuegoUnirScreen() {
     }, 300);
   }
 
-  // Tap handler fallback
   const handleTapWord = (word: string, isKarina: boolean) => {
     if (isProcessing) return;
 
@@ -297,12 +299,11 @@ export default function JuegoUnirScreen() {
       if (activeWord) {
         checkMatch(activeWord, word);
       } else {
-        showFeedback('💡 Toca primero una palabra en Kariña', 'error');
+        showFeedback('💡 ' + t('unir.tap_karina_first'), 'error');
       }
     }
   };
 
-  // Gesture Handler
   const gesture = Gesture.Pan()
     .onBegin((e) => {
       if (isProcessing) return;
@@ -319,7 +320,6 @@ export default function JuegoUnirScreen() {
           touchY <= box.y + box.height
         ) {
           runOnJS(setActiveWord)(word);
-          // Set to local coordinates of the container
           startX.value = box.x + box.width / 2 - containerOffset.x;
           startY.value = box.y + box.height / 2 - containerOffset.y;
           endX.value = touchX - containerOffset.x;
@@ -356,7 +356,7 @@ export default function JuegoUnirScreen() {
         }
 
         if (!found) {
-          runOnJS(showFeedback)('💡 Conecta con la palabra correcta', 'error');
+          runOnJS(showFeedback)('💡 ' + t('unir.drag_to_correct'), 'error');
           runOnJS(resetLine)();
         }
       } else {
@@ -374,7 +374,6 @@ export default function JuegoUnirScreen() {
     strokeOpacity: isDragging.value ? 0.8 : 0,
   }));
 
-  // Handle transition to options game
   const handleGoToOptions = () => {
     if (parsedModuloId !== null) {
       router.push(`/juego/opciones?modulo_id=${parsedModuloId}`);
@@ -387,23 +386,22 @@ export default function JuegoUnirScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1B5E20" />
-        <Text style={styles.loadingText}>Cargando desafío...</Text>
+        <Text style={styles.loadingText}>{t('games.loading')}</Text>
       </SafeAreaView>
     );
   }
 
-  // 🛡️ ESCUDO PROTECTOR: Fallback UI when words count is insufficient
   if (error || !allWords || allWords.length < 4) {
     return (
       <SafeAreaView style={styles.fallbackContainer}>
         <View style={styles.fallbackCard}>
           <Text style={styles.fallbackEmoji}>⚠️</Text>
-          <Text style={styles.fallbackTitle}>No hay suficientes palabras</Text>
+          <Text style={styles.fallbackTitle}>{t('games.insufficient_words')}</Text>
           <Text style={styles.fallbackDescription}>
-            Este módulo no cuenta con palabras suficientes para iniciar este minijuego (se requieren al menos 4).
+            {t('games.insufficient_words_desc')}
           </Text>
           <Pressable onPress={() => router.back()} style={styles.fallbackButton}>
-            <Text style={styles.fallbackButtonText}>Volver al menú</Text>
+            <Text style={styles.fallbackButtonText}>{t('games.back_menu')}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -411,7 +409,6 @@ export default function JuegoUnirScreen() {
   }
 
   if (gameOver) {
-    // Módulo 5: calcular porcentaje de aciertos
     const pctAciertos = totalPossible > 0 ? totalMatches / totalPossible : 0;
     const passed = pctAciertos >= XP_THRESHOLD;
     const xpGanado = passed ? score : 0;
@@ -422,14 +419,14 @@ export default function JuegoUnirScreen() {
           {passed ? (
             <>
               <Text style={styles.victoryEmoji}>🎉</Text>
-              <Text style={styles.victoryTitle}>¡Desafío Completado!</Text>
-              <Text style={styles.victorySubtitle}>Puntuación obtenida</Text>
+              <Text style={styles.victoryTitle}>{t('unir.victory_title')}</Text>
+              <Text style={styles.victorySubtitle}>{t('unir.victory_subtitle')}</Text>
               <View style={styles.scoreBadge}>
-                <Text style={styles.scoreText}>⭐ {score} pts</Text>
+                <Text style={styles.scoreText}>⭐ {score} {t('games.score')}</Text>
               </View>
               {parsedModuloId !== null && (
                 <View style={[styles.scoreBadge, { backgroundColor: '#E8F5E9', borderColor: '#81C784', marginTop: 8 }]}>
-                  <Text style={[styles.scoreText, { color: '#2E7D32' }]}>+{xpGanado} XP</Text>
+                  <Text style={[styles.scoreText, { color: '#2E7D32' }]}>+{xpGanado} {t('games.xp_earned')}</Text>
                 </View>
               )}
               <Pressable
@@ -439,25 +436,24 @@ export default function JuegoUnirScreen() {
               >
                 {savingProgress
                   ? <ActivityIndicator color="#FFFFFF" size="small" />
-                  : <Text style={styles.victoryButtonText}>Siguiente Juego</Text>
+                  : <Text style={styles.victoryButtonText}>{t('games.next_game')}</Text>
                 }
               </Pressable>
             </>
           ) : (
             <>
               <Text style={styles.victoryEmoji}>😓</Text>
-              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>Sección no superada</Text>
+              <Text style={[styles.victoryTitle, { color: '#C62828' }]}>{t('games.not_passed')}</Text>
               <Text style={[styles.victorySubtitle, { textAlign: 'center', marginTop: 8 }]}>
-                Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!
+                {t('games.not_passed_desc')}
               </Text>
               <View style={[styles.scoreBadge, { backgroundColor: '#FFEBEE', borderColor: '#EF9A9A', marginTop: 16 }]}>
                 <Text style={[styles.scoreText, { color: '#C62828' }]}>
-                  {totalMatches} / {totalPossible} correctos ({Math.round(pctAciertos * 100)}%)
+                  {totalMatches} / {totalPossible} {t('games.correct_lower')} ({Math.round(pctAciertos * 100)}%)
                 </Text>
               </View>
               <Pressable
                 onPress={() => {
-                  // Reiniciar el juego
                   setGameOver(false);
                   setRound(1);
                   setScore(0);
@@ -467,7 +463,7 @@ export default function JuegoUnirScreen() {
                 }}
                 style={[styles.victoryButton, { backgroundColor: '#C62828' }]}
               >
-                <Text style={styles.victoryButtonText}>Reintentar</Text>
+                <Text style={styles.victoryButtonText}>{t('games.retry')}</Text>
               </Pressable>
             </>
           )}
@@ -479,25 +475,23 @@ export default function JuegoUnirScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header */}
         <View style={styles.header}>
-          {/* Módulo 4: router.replace para destruir pila de navegación */}
           <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
-            <Text style={styles.backButtonText}>← Salir</Text>
+            <Text style={styles.backButtonText}>{t('games.exit')}</Text>
           </Pressable>
-          <Text style={styles.headerTitle}>🔗 Une las palabras</Text>
+          <Text style={styles.headerTitle}>{t('unir.title')}</Text>
           <View style={styles.headerStats}>
             <View style={styles.statBadge}>
-              {/* Módulo 3: mostrar total de rondas actualizado */}
-              <Text style={styles.statLabel}>Ronda {round} de {TOTAL_ROUNDS}</Text>
+              <Text style={styles.statLabel}>
+                {t('games.round_of', { current: round, total: TOTAL_ROUNDS })}
+              </Text>
             </View>
             <View style={styles.statBadge}>
-              <Text style={styles.scoreHighlight}>⭐ {score} pts</Text>
+              <Text style={styles.scoreHighlight}>⭐ {score} {t('games.score')}</Text>
             </View>
           </View>
         </View>
 
-        {/* Feedback Alert Overlay */}
         {feedback && (
           <View
             style={[
@@ -511,7 +505,7 @@ export default function JuegoUnirScreen() {
 
         <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false}>
           <Text style={styles.instructions}>
-            Arrastra de Kariña a Español o toca ambos para unirlos
+            {t('unir.instructions')}
           </Text>
 
           <GestureDetector gesture={gesture}>
@@ -522,12 +516,9 @@ export default function JuegoUnirScreen() {
               }}
               style={styles.gameArea}
             >
-              {/* SVG Layer for Drawing Lines */}
               <View style={styles.svgContainer}>
                 <Svg style={{ width: '100%', height: '100%' }}>
-                  {/* Active Dragging Line */}
                   <AnimatedLine animatedProps={animatedLineProps} />
-                  {/* Matched Pairs Lines */}
                   {matchedPairs.map(pair => {
                     const kBox = karinaBoxes[pair.karina];
                     const eBox = espanolBoxes[pair.espanol];
@@ -554,9 +545,7 @@ export default function JuegoUnirScreen() {
                 </Svg>
               </View>
 
-              {/* Columns */}
               <View style={styles.columnsContainer}>
-                {/* Column Kariña */}
                 <View style={styles.column}>
                   <Text style={styles.columnHeader}>KARIÑA</Text>
                   {karinaList.map(word => {
@@ -598,7 +587,6 @@ export default function JuegoUnirScreen() {
                   })}
                 </View>
 
-                {/* Column Español */}
                 <View style={styles.column}>
                   <Text style={[styles.columnHeader, { color: '#1565C0' }]}>ESPAÑOL</Text>
                   {espanolList.map(word => {

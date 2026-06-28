@@ -6,16 +6,19 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useDatabaseContext } from '@/context/DatabaseContext';
+import { useTranslation } from 'react-i18next';       // 👈 AÑADIDO
+import { useLanguage } from '@/context/LanguageContext'; // 👈 AÑADIDO
 
 // ─── Constantes de juego ──────────────────────────────────────────────────────
 const TOTAL_ROUNDS = 2;        // Módulo 3: máximo 2 rondas
-const XP_THRESHOLD = 0.7;     // Módulo 5: umbral del 70%
-const XP_PER_CORRECT = 50;    // Módulo 5: XP por palabra correcta
+const XP_THRESHOLD = 0.7;      // Módulo 5: umbral del 70%
+const XP_PER_CORRECT = 50;     // Módulo 5: XP por palabra correcta
 
 interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
+  significado_ingles?: string;   // 👈 NUEVO CAMPO para traducción
   audio_url: string | null;
 }
 
@@ -30,6 +33,8 @@ export default function JuegoDictadoScreen() {
   const { modulo_id } = useLocalSearchParams();
   const { session } = useSession();
   const { enqueuePendingScore } = useDatabaseContext();
+  const { t } = useTranslation();         // 👈 INICIALIZADO
+  const { language } = useLanguage();     // 👈 INICIALIZADO
 
   // Parse and normalize modulo_id
   const parsedModuloId = modulo_id
@@ -70,7 +75,7 @@ export default function JuegoDictadoScreen() {
 
       let query = supabase
         .from('words')
-        .select('id, palabra_karina, significado_espanol, audio_url');
+        .select('id, palabra_karina, significado_espanol, audio_url, significado_ingles'); // 👈 AÑADIDO
 
       if (parsedModuloId !== null) {
         query = query.eq('modulo_id', parsedModuloId);
@@ -378,14 +383,12 @@ export default function JuegoDictadoScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        {/* Módulo 4: router.replace para destruir pila de navegación */}
         <Pressable onPress={() => router.replace('/(app)/(tabs)')} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Salir</Text>
         </Pressable>
         <Text style={styles.headerTitle}>✍️ Dictado Kariña</Text>
         <View style={styles.headerStats}>
           <View style={styles.statBadge}>
-            {/* Módulo 3: mostrar TOTAL_ROUNDS */}
             <Text style={styles.statLabel}>Palabra {round} de {TOTAL_ROUNDS}</Text>
           </View>
           <View style={styles.statBadge}>
@@ -399,10 +402,14 @@ export default function JuegoDictadoScreen() {
           Escucha el audio y ordena las letras para escribir la palabra
         </Text>
 
-        {/* Audio Box */}
+        {/* Audio Card - MODIFICADO */}
         <View style={styles.audioCard}>
-          <Text style={styles.audioCardSubtitle}>Pista en Español:</Text>
-          <Text style={styles.targetMeaning}>{target?.significado_espanol}</Text>
+          <Text style={styles.audioCardSubtitle}>{t('common.spanish_clue')}</Text>  {/* 👈 CLAVE */}
+          <Text style={styles.targetMeaning}>
+            {language === 'en' && target?.significado_ingles
+              ? target.significado_ingles
+              : target?.significado_espanol}
+          </Text>
 
           <Pressable
             onPress={() => target?.audio_url && playAudio(target.audio_url)}
@@ -416,7 +423,7 @@ export default function JuegoDictadoScreen() {
           </Text>
         </View>
 
-        {/* Assembled Letters Area */}
+        {/* Assembled Letters Section */}
         <View style={styles.assembledSection}>
           <View style={styles.assembledContainer}>
             {assembledLetters.length === 0 ? (
@@ -456,7 +463,7 @@ export default function JuegoDictadoScreen() {
           )}
         </View>
 
-        {/* Feedback Alert Row */}
+        {/* Feedback Alert */}
         {roundChecked && (
           <View
             style={[
@@ -496,7 +503,7 @@ export default function JuegoDictadoScreen() {
           </View>
         )}
 
-        {/* Action Button */}
+        {/* Action Button - MODIFICADO */}
         <View style={styles.actionContainer}>
           {!roundChecked ? (
             <Pressable
@@ -507,7 +514,7 @@ export default function JuegoDictadoScreen() {
                 assembledLetters.length === 0 && styles.actionButtonDisabled,
               ]}
             >
-              <Text style={styles.actionButtonText}>Verificar respuesta</Text>
+              <Text style={styles.actionButtonText}>{t('common.verify')}</Text>  {/* 👈 CLAVE */}
             </Pressable>
           ) : (
             !roundCorrect && (

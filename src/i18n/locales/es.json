@@ -76,19 +76,23 @@
     "score": "Puntos",
     "xp_earned": "XP Ganado",
     "not_passed": "Sección no superada",
-    "not_passed_desc": "Necesitas al menos 70% de aciertos para avanzar. ¡Sigue practicando!",
+    "not_passed_desc": "Necesitas al menos el 70% de aciertos para avanzar. ¡Sigue practicando!",
     "next_game": "Siguiente Juego",
     "finish": "Finalizar práctica",
     "correct": "¡Excelente trabajo! ¡Correcto!",
-    "round_of": "Ronda {{current}} de {{total}}",
     "word_of": "Palabra {{current}} de {{total}}",
-    "successes_of": "Aciertos: {{current}} de {{total}}"
+    "successes_of": "Aciertos: {{current}} de {{total}}",
+    "correct_lower": "correctos",
+    "is": "es",
+    "round_of": "Ronda {{current}} de {{total}}"
   },
   "unir": {
     "title": "🔗 Une las palabras",
     "instructions": "Arrastra de Kariña a Español o toca ambos para unirlos",
     "victory_title": "¡Desafío Completado!",
-    "victory_subtitle": "Puntuación obtenida"
+    "victory_subtitle": "Puntuación obtenida",
+    "tap_karina_first": "Toca primero una palabra en Kariña",
+    "drag_to_correct": "Conecta con la palabra correcta"
   },
   "opciones": {
     "title": "🎧 Escucha y elige",
