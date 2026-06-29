@@ -14,6 +14,11 @@ export default function JuegosScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
 
+  // Animaciones para cada juego (hover/scale)
+  const [scaleAnims] = useState(() => 
+    ['unir', 'opciones', 'dictado'].map(() => new Animated.Value(1))
+  );
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -84,9 +89,29 @@ export default function JuegosScreen() {
     }
   };
 
+  // Manejar presión en cada juego
+  const handlePressIn = (index: number) => {
+    Animated.spring(scaleAnims[index], {
+      toValue: 0.97,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = (index: number) => {
+    Animated.spring(scaleAnims[index], {
+      toValue: 1,
+      friction: 5,
+      useNativeDriver: true,
+    }).start();
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 60 }} // 👈 Más espacio inferior
+      >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {/* Header con gradiente */}
           <LinearGradient
@@ -139,86 +164,108 @@ export default function JuegosScreen() {
                 key={juego.id}
                 style={{
                   opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
+                  transform: [{ translateY: slideAnim }, { scale: scaleAnims[index] }],
                 }}
               >
-                <Pressable onPress={() => router.push(`/(app)/juego/${juego.id}` as any)}>
-                  <LinearGradient
-                    colors={['#FFFFFF', juego.bgColor]}
-                    style={{
-                      borderRadius: 20,
-                      padding: 18,
-                      marginBottom: 14,
-                      borderWidth: 1,
-                      borderColor: '#F0EDE8',
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.06,
-                      shadowRadius: 10,
-                      elevation: 4,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                      <View
-                        style={{
-                          width: 60,
-                          height: 60,
-                          borderRadius: 18,
-                          backgroundColor: `${juego.color}18`,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: 1,
-                          borderColor: `${juego.color}30`,
-                        }}
-                      >
-                        <Ionicons name={juego.icon as any} size={30} color={juego.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>
-                            {juego.titulo}
-                          </Text>
-                          <View
-                            style={{
-                              backgroundColor:
-                                juego.dificultad === (t('common.easy') || 'Fácil')
-                                  ? '#E8F5E9'
-                                  : juego.dificultad === (t('common.medium') || 'Medio')
-                                    ? '#FFF3E0'
-                                    : '#FFEBEE',
-                              borderRadius: 8,
-                              paddingHorizontal: 10,
-                              paddingVertical: 3,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                          >
-                            <Ionicons 
-                              name={getDifficultyIcon(juego.dificultad)} 
-                              size={12} 
-                              color={getDifficultyIconColor(juego.dificultad)} 
-                            />
-                            <Text
+                <Pressable 
+                  onPress={() => router.push(`/(app)/juego/${juego.id}` as any)}
+                  onPressIn={() => handlePressIn(index)}
+                  onPressOut={() => handlePressOut(index)}
+                >
+                  {({ pressed }) => (
+                    <LinearGradient
+                      colors={pressed ? [juego.bgColor, '#FFFFFF'] : ['#FFFFFF', juego.bgColor]}
+                      style={{
+                        borderRadius: 20,
+                        padding: 18,
+                        marginBottom: 14,
+                        borderWidth: 2,
+                        borderColor: pressed ? juego.color : '#F0EDE8',
+                        shadowColor: pressed ? juego.color : '#000',
+                        shadowOffset: { width: 0, height: pressed ? 8 : 4 },
+                        shadowOpacity: pressed ? 0.2 : 0.06,
+                        shadowRadius: pressed ? 20 : 10,
+                        elevation: pressed ? 8 : 4,
+                        transform: [{ scale: pressed ? 0.98 : 1 }],
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                        <View
+                          style={{
+                            width: 60,
+                            height: 60,
+                            borderRadius: 18,
+                            backgroundColor: pressed ? `${juego.color}30` : `${juego.color}18`,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: 2,
+                            borderColor: pressed ? juego.color : `${juego.color}30`,
+                          }}
+                        >
+                          <Ionicons name={juego.icon as any} size={30} color={juego.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <Text style={{ 
+                              fontSize: 16, 
+                              fontWeight: '800', 
+                              color: pressed ? juego.color : '#1A2E1A' 
+                            }}>
+                              {juego.titulo}
+                            </Text>
+                            <View
                               style={{
-                                fontSize: 10,
-                                fontWeight: '700',
-                                color: getDifficultyIconColor(juego.dificultad),
+                                backgroundColor: pressed ? `${juego.color}20` : (
+                                  juego.dificultad === (t('common.easy') || 'Fácil')
+                                    ? '#E8F5E9'
+                                    : juego.dificultad === (t('common.medium') || 'Medio')
+                                      ? '#FFF3E0'
+                                      : '#FFEBEE'
+                                ),
+                                borderRadius: 8,
+                                paddingHorizontal: 10,
+                                paddingVertical: 3,
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 4,
                               }}
                             >
-                              {juego.dificultad}
-                            </Text>
+                              <Ionicons 
+                                name={getDifficultyIcon(juego.dificultad)} 
+                                size={12} 
+                                color={getDifficultyIconColor(juego.dificultad)} 
+                              />
+                              <Text
+                                style={{
+                                  fontSize: 10,
+                                  fontWeight: '700',
+                                  color: getDifficultyIconColor(juego.dificultad),
+                                }}
+                              >
+                                {juego.dificultad}
+                              </Text>
+                            </View>
                           </View>
+                          <Text style={{ 
+                            fontSize: 12, 
+                            color: pressed ? juego.color : '#666', 
+                            lineHeight: 17, 
+                            marginTop: 3 
+                          }}>
+                            {juego.descripcion}
+                          </Text>
                         </View>
-                        <Text style={{ fontSize: 12, color: '#666', lineHeight: 17, marginTop: 3 }}>
-                          {juego.descripcion}
-                        </Text>
+                        <View style={{ 
+                          backgroundColor: pressed ? `${juego.color}25` : `${juego.color}15`, 
+                          borderRadius: 30, 
+                          padding: 6,
+                          transform: [{ scale: pressed ? 1.1 : 1 }],
+                        }}>
+                          <Ionicons name="chevron-forward" size={20} color={juego.color} />
+                        </View>
                       </View>
-                      <View style={{ backgroundColor: `${juego.color}15`, borderRadius: 30, padding: 6 }}>
-                        <Ionicons name="chevron-forward" size={20} color={juego.color} />
-                      </View>
-                    </View>
-                  </LinearGradient>
+                    </LinearGradient>
+                  )}
                 </Pressable>
               </Animated.View>
             ))}
@@ -232,6 +279,7 @@ export default function JuegosScreen() {
                 borderRadius: 20,
                 padding: 18,
                 marginTop: 8,
+                marginBottom: 20, // 👈 Margen inferior para separar de la navegación
                 flexDirection: 'row',
                 gap: 14,
                 alignItems: 'center',
