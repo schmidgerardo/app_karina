@@ -37,7 +37,7 @@ export default function JuegosScreen() {
       id: 'unir',
       titulo: t('unir.title'),
       descripcion: t('unir.instructions'),
-      emoji: '🔗',
+      icon: 'link-outline',
       color: '#2E7D32',
       bgColor: '#E8F5E9',
       dificultad: t('common.easy') || 'Fácil',
@@ -46,7 +46,7 @@ export default function JuegosScreen() {
       id: 'opciones',
       titulo: t('opciones.title'),
       descripcion: t('opciones.instructions'),
-      emoji: '🎧',
+      icon: 'headset-outline',
       color: '#1565C0',
       bgColor: '#E3F2FD',
       dificultad: t('common.medium') || 'Medio',
@@ -55,12 +55,34 @@ export default function JuegosScreen() {
       id: 'dictado',
       titulo: t('dictado.title'),
       descripcion: t('dictado.instructions'),
-      emoji: '✍️',
+      icon: 'create-outline',
       color: '#E65100',
       bgColor: '#FFF3E0',
       dificultad: t('common.hard') || 'Difícil',
     },
   ];
+
+  // Función para obtener el icono de dificultad
+  const getDifficultyIcon = (dificultad: string) => {
+    if (dificultad === (t('common.easy') || 'Fácil')) {
+      return 'leaf-outline';
+    } else if (dificultad === (t('common.medium') || 'Medio')) {
+      return 'water-outline';
+    } else {
+      return 'flame-outline';
+    }
+  };
+
+  // Función para obtener el color del icono de dificultad
+  const getDifficultyIconColor = (dificultad: string) => {
+    if (dificultad === (t('common.easy') || 'Fácil')) {
+      return '#2E7D32';
+    } else if (dificultad === (t('common.medium') || 'Medio')) {
+      return '#1565C0';
+    } else {
+      return '#C62828';
+    }
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
@@ -80,8 +102,14 @@ export default function JuegosScreen() {
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 50 }}>
-                <Text style={{ fontSize: 28 }}>🎮</Text>
+              <View style={{ 
+                backgroundColor: 'rgba(255,255,255,0.1)', 
+                padding: 10, 
+                borderRadius: 50,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+              }}>
+                <Ionicons name="game-controller-outline" size={28} color="#F59E0B" />
               </View>
               <View>
                 <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
@@ -100,7 +128,7 @@ export default function JuegosScreen() {
           {/* Contenido */}
           <View style={{ padding: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <Ionicons name="game-controller" size={20} color="#F59E0B" />
+              <Ionicons name="compass-outline" size={20} color="#F59E0B" />
               <Text style={{ fontSize: 14, color: '#888', fontStyle: 'italic' }}>
                 {t('modules.select')}
               </Text>
@@ -143,7 +171,7 @@ export default function JuegosScreen() {
                           borderColor: `${juego.color}30`,
                         }}
                       >
-                        <Text style={{ fontSize: 30 }}>{juego.emoji}</Text>
+                        <Ionicons name={juego.icon as any} size={30} color={juego.color} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -161,18 +189,21 @@ export default function JuegosScreen() {
                               borderRadius: 8,
                               paddingHorizontal: 10,
                               paddingVertical: 3,
+                              flexDirection: 'row',
+                              alignItems: 'center',
+                              gap: 4,
                             }}
                           >
+                            <Ionicons 
+                              name={getDifficultyIcon(juego.dificultad)} 
+                              size={12} 
+                              color={getDifficultyIconColor(juego.dificultad)} 
+                            />
                             <Text
                               style={{
                                 fontSize: 10,
                                 fontWeight: '700',
-                                color:
-                                  juego.dificultad === (t('common.easy') || 'Fácil')
-                                    ? '#2E7D32'
-                                    : juego.dificultad === (t('common.medium') || 'Medio')
-                                      ? '#E65100'
-                                      : '#C62828',
+                                color: getDifficultyIconColor(juego.dificultad),
                               }}
                             >
                               {juego.dificultad}
@@ -211,8 +242,14 @@ export default function JuegosScreen() {
                 elevation: 6,
               }}
             >
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 50 }}>
-                <Text style={{ fontSize: 28 }}>🎮</Text>
+              <View style={{ 
+                backgroundColor: 'rgba(255,255,255,0.1)', 
+                padding: 12, 
+                borderRadius: 50,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.2)',
+              }}>
+                <Ionicons name="rocket-outline" size={28} color="#F59E0B" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: '#F59E0B', fontSize: 14, fontWeight: '800', marginBottom: 4 }}>
