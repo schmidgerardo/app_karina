@@ -80,6 +80,21 @@ export default function ModulosScreen() {
     setLoading(false);
   }
 
+  // Función para obtener la URL completa de la imagen desde Supabase Storage
+  const getImageUrl = (imagePath: string) => {
+    if (!imagePath) return null;
+    
+    // Si ya es una URL completa, devolverla
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // Construir URL desde el storage de Supabase
+    const { data } = supabase.storage
+      .from('Image') // Nombre del bucket
+      .getPublicUrl(imagePath);
+    
+    return data?.publicUrl || null;
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center' }}>
@@ -178,6 +193,21 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
   const titulo = language === 'es' ? item.titulo_espanol : item.titulo_ingles;
   const desc = language === 'es' ? item.descripcion : item.descripcion_ingles;
 
+  // Función para obtener la URL completa de la imagen desde Supabase Storage
+  const getImageUrl = (imagePath: string) => {
+    if (!imagePath) return null;
+    
+    // Si ya es una URL completa, devolverla
+    if (imagePath.startsWith('http')) return imagePath;
+    
+    // Construir URL desde el storage de Supabase
+    const { data } = supabase.storage
+      .from('Image') // Nombre del bucket
+      .getPublicUrl(imagePath);
+    
+    return data?.publicUrl || null;
+  };
+
   // Iconos autóctonos según el índice del módulo
   const getModuleIcon = (index: number) => {
     const icons = [
@@ -199,6 +229,8 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
   const getPracticeIcon = (isCompleted: boolean) => {
     return isCompleted ? 'sync-outline' : 'play-outline';
   };
+
+  const imageUrl = getImageUrl(item.imagen_url);
 
   return (
     <View style={{ marginBottom: 14 }}>
@@ -222,7 +254,24 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
               elevation: 4,
             }}
           >
-            <Image source={{ uri: item.imagen_url }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+            {imageUrl ? (
+              <Image 
+                source={{ uri: imageUrl }} 
+                style={{ width: '100%', height: 160 }} 
+                contentFit="cover"
+                transition={300}
+              />
+            ) : (
+              <View style={{ 
+                width: '100%', 
+                height: 160, 
+                backgroundColor: '#E8F5E9',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Ionicons name="image-outline" size={40} color="#888" />
+              </View>
+            )}
             <View style={{ padding: 16 }}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                 <View style={{ flex: 1 }}>
@@ -251,7 +300,7 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="text-outline" size={14} color="#888" />
+                  <Ionicons name="book-outline" size={14} color="#888" />
                   <Text style={{ fontSize: 11, color: '#888' }}>8 {language === 'es' ? 'palabras' : 'words'}</Text>
                 </View>
                 <LinearGradient
