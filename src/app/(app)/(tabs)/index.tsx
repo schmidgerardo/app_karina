@@ -75,7 +75,7 @@ const SABIAS_QUE = [
   },
 ];
 
-// Componente SabíasQueRotativo mejorado
+// Componente SabíasQueRotativo mejorado - CON IMAGEN COMPLETA
 function SabiasQueRotativo() {
   const { t } = useTranslation();
   const [idx, setIdx] = useState(0);
@@ -124,7 +124,24 @@ function SabiasQueRotativo() {
         >
           {SABIAS_QUE.map((s, i) => (
             <View key={i} style={{ width: CARD_WIDTH }}>
-              <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
+              {/* Contenedor de la imagen - MODIFICADO PARA MOSTRAR COMPLETA */}
+              <View style={{ 
+                width: '100%', 
+                height: 180, 
+                backgroundColor: '#1B5E20',
+                justifyContent: 'center',
+                alignItems: 'center',
+                overflow: 'hidden'
+              }}>
+                <Image 
+                  source={{ uri: s.imagen }} 
+                  style={{ 
+                    width: '100%', 
+                    height: '100%' 
+                  }} 
+                  contentFit="contain"  // <--- CAMBIADO DE "cover" A "contain"
+                />
+              </View>
               <View style={{ padding: 16, backgroundColor: '#1B5E20' }}>
                 <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>
                   {t(s.tituloKey)}
