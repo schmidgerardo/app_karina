@@ -45,7 +45,7 @@ export default function PerfilScreen() {
 
   const [editName, setEditName] = useState('');
   const [editEdad, setEditEdad] = useState('');
-  const [editComunidad, setEditComunidad] = useState(false); // 👈 Nuevo estado
+  const [editComunidad, setEditComunidad] = useState(false);
   const [stats, setStats] = useState({ totalXp: 0, completed: 0, totalGames: 0 });
 
   const [showPassModal, setShowPassModal] = useState(false);
@@ -113,7 +113,7 @@ export default function PerfilScreen() {
         setAvatarUrl(data.avatar_url);
         setEditName(data.full_name || '');
         setEditEdad(data.edad ? String(data.edad) : '');
-        setEditComunidad(data.pertenece_comunidad || false); // 👈 Cargar comunidad
+        setEditComunidad(data.pertenece_comunidad || false);
       } else {
         console.log('Perfil no encontrado, creando uno nuevo...');
         const { data: newUser, error: insertError } = await supabase
@@ -151,7 +151,7 @@ export default function PerfilScreen() {
       .update({
         full_name: editName,
         edad: editEdad ? parseInt(editEdad) : null,
-        pertenece_comunidad: editComunidad, // 👈 Guardar comunidad
+        pertenece_comunidad: editComunidad,
       })
       .eq('id', session.user.id);
 
@@ -232,7 +232,10 @@ export default function PerfilScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={{ paddingBottom: 80 }} // 👈 Aumentado para más espacio
+      >
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {/* Header con gradiente y foto */}
           <LinearGradient
@@ -340,7 +343,7 @@ export default function PerfilScreen() {
                       style={[inputStyle, { backgroundColor: '#FFFFFF' }]}
                     />
                   </View>
-                  {/* 👈 Switch para comunidad en modo edición */}
+                  {/* Switch para comunidad en modo edición */}
                   <View style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -439,7 +442,7 @@ export default function PerfilScreen() {
               />
             </View>
 
-            {/* Botón cerrar sesión */}
+            {/* Botón cerrar sesión - CON MARGEN INFERIOR PARA SEPARAR DE LA NAVEGACIÓN */}
             <Pressable
               onPress={() => supabase.auth.signOut()}
               style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
@@ -448,6 +451,7 @@ export default function PerfilScreen() {
                 colors={['#FFEBEE', '#FFCDD2']}
                 style={{
                   marginTop: 8,
+                  marginBottom: 30, // 👈 Margen inferior para separar de la navegación
                   padding: 16,
                   borderRadius: 16,
                   flexDirection: 'row',
