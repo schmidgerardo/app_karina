@@ -135,8 +135,23 @@
     "sync": "Sync Content",
     "syncing": "Syncing..."
   },
-
-  
+  "sabias_que": {
+    "title": "Did you know",
+    "titulo_1": "Did you know?",
+    "texto_1": "The Kariña have inhabited the territory of Bolívar State, Venezuela, since ancient times. Their name means \"the people\".",
+    "titulo_2": "Did you know?",
+    "texto_2": "The Kariña territory is surrounded by tepuis and Amazon rainforest. Each mountain and river has a protective spirit.",
+    "titulo_3": "Did you know?",
+    "texto_3": "The Kariña language is a Cariban language that has survived despite colonization. Today it is taught to new generations.",
+    "titulo_4": "Did you know?",
+    "texto_4": "Kariña artisans make baskets and pottery with techniques passed from grandmother to granddaughter.",
+    "titulo_5": "Did you know?",
+    "texto_5": "Kariña ceremonial axes are symbols of power and connection with ancestors."
+  },
+  "mascota": {
+    "saludo": "Hello! I'm your Kariña guide",
+    "subtitulo": "Tap to practice pronunciation"
+  },
   "common": {
     "continue": "Continue",
     "verify": "Check answer",

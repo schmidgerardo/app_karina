@@ -36,37 +36,43 @@ interface ProgressItem {
   completed_at?: string | null;
 }
 
-// Datos de "Sabías que"
+// Datos de "Sabías que" con traducciones
 const SABIAS_QUE = [
   {
-    titulo: '¿Sabías que?',
-    texto: 'Los Kariña habitan el territorio del Estado Bolívar, Venezuela, desde tiempos ancestrales. Su name significa "el pueblo".',
+    id: 'sabias_1',
+    tituloKey: 'sabias_que.titulo_1',
+    textoKey: 'sabias_que.texto_1',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_dc727547-b06b-4d44-a03f-a4cb4506fa18.jpg',
   },
   {
-    titulo: '¿Sabías que?',
-    texto: 'El territorio Kariña está rodeado de tepuyes y selva amazónica. Cada montaña y río tiene un espíritu protector.',
+    id: 'sabias_2',
+    tituloKey: 'sabias_que.titulo_2',
+    textoKey: 'sabias_que.texto_2',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1d848420-04ef-4f88-aadb-8748e1135ff1.jpg',
   },
   {
-    titulo: '¿Sabías que?',
-    texto: 'La lengua Kariña es una lengua caribe que ha sobrevivido pese a la colonización. Hoy se enseña a nuevas generaciones.',
+    id: 'sabias_3',
+    tituloKey: 'sabias_que.titulo_3',
+    textoKey: 'sabias_que.texto_3',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_7db21dcd-f48f-411b-9589-22deafac292e.jpg',
   },
   {
-    titulo: '¿Sabías que?',
-    texto: 'Los artesanos Kariña elaboran cestas y cerámica con técnicas transmitidas de abuela a nieta.',
+    id: 'sabias_4',
+    tituloKey: 'sabias_que.titulo_4',
+    textoKey: 'sabias_que.texto_4',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8ad11788-1332-4f29-89ab-6d14f7d0e3ae.jpg',
   },
   {
-    titulo: '¿Sabías que?',
-    texto: 'Las hachas ceremoniales Kariña son símbolos de poder y conexión con los ancestros.',
+    id: 'sabias_5',
+    tituloKey: 'sabias_que.titulo_5',
+    textoKey: 'sabias_que.texto_5',
     imagen: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_79a3c4fe-c330-48af-a1f0-7652e49af193.jpg',
   },
 ];
 
 // Componente SabíasQueRotativo mejorado
 function SabiasQueRotativo() {
+  const { t } = useTranslation();
   const [idx, setIdx] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -93,8 +99,10 @@ function SabiasQueRotativo() {
   return (
     <View style={{ marginTop: 28, paddingHorizontal: 20 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>💡</Text>
-        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>Sabías que</Text>
+        <Ionicons name="bulb-outline" size={22} color="#1A2E1A" />
+        <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>
+          {t('sabias_que.title')}
+        </Text>
       </View>
 
       <View style={{ borderRadius: 24, overflow: 'hidden', backgroundColor: '#1B5E20', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 6 }}>
@@ -113,8 +121,12 @@ function SabiasQueRotativo() {
             <View key={i} style={{ width: CARD_WIDTH }}>
               <Image source={{ uri: s.imagen }} style={{ width: '100%', height: 160 }} contentFit="cover" />
               <View style={{ padding: 16, backgroundColor: '#1B5E20' }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>{s.titulo}</Text>
-                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>{s.texto}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#F59E0B', marginBottom: 4 }}>
+                  {t(s.tituloKey)}
+                </Text>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>
+                  {t(s.textoKey)}
+                </Text>
               </View>
             </View>
           ))}
@@ -141,6 +153,7 @@ function SabiasQueRotativo() {
 
 // Componente MascotaTortuga mejorado
 function MascotaTortuga() {
+  const { t } = useTranslation();
   const router = useRouter();
   return (
     <View style={{ marginTop: 28, paddingHorizontal: 20, alignItems: 'center' }}>
@@ -168,8 +181,12 @@ function MascotaTortuga() {
             contentFit="cover"
           />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>🐢 ¡Hola! Soy tu guía Kariña</Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>Toca para practicar pronunciación</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+              {t('mascota.saludo')}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>
+              {t('mascota.subtitulo')}
+            </Text>
           </View>
           <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
         </LinearGradient>
@@ -190,7 +207,7 @@ export default function HomeScreen() {
   const [totalXp, setTotalXp] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState('');
-  const [userAvatar, setUserAvatar] = useState<string | null>(null); // 👈 Nuevo estado para avatar
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
 
   const [showCompleteProfile, setShowCompleteProfile] = useState(false);
   const [edad, setEdad] = useState('');
@@ -235,13 +252,13 @@ export default function HomeScreen() {
     if (session?.user?.id) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name, username, edad, pertenece_comunidad, avatar_url') // 👈 Añadido avatar_url
+        .select('full_name, username, edad, pertenece_comunidad, avatar_url')
         .eq('id', session.user.id)
         .single();
 
       if (profile) {
         setUserName(profile.full_name || profile.username || 'Usuario');
-        setUserAvatar(profile.avatar_url || null); // 👈 Guardar avatar
+        setUserAvatar(profile.avatar_url || null);
         if (
           profile.edad === null ||
           profile.edad === undefined ||
@@ -302,7 +319,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
         <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
           {/* Banner mejorado con gradiente */}
           <LinearGradient
@@ -335,7 +352,7 @@ export default function HomeScreen() {
                   flexShrink: 0,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: isSmallScreen ? 9 : 10, fontWeight: '700' }}>{language === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: isSmallScreen ? 9 : 10, fontWeight: '700' }}>{language === 'es' ? 'ES' : 'EN'}</Text>
               </Pressable>
             </View>
           </LinearGradient>
@@ -462,7 +479,7 @@ export default function HomeScreen() {
                   }}
                 >
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 28 }}>🗂️</Text>
+                    <Ionicons name="folder-outline" size={28} color="#2E7D32" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
@@ -492,7 +509,7 @@ export default function HomeScreen() {
                   }}
                 >
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 28 }}>📖</Text>
+                    <Ionicons name="book-outline" size={28} color="#F59E0B" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
@@ -522,7 +539,7 @@ export default function HomeScreen() {
                   }}
                 >
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E3F2FD', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 28 }}>🎮</Text>
+                    <Ionicons name="game-controller-outline" size={28} color="#1565C0" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>

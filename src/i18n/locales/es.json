@@ -135,6 +135,23 @@
     "sync": "Sincronizar Contenido",
     "syncing": "Sincronizando..."
   },
+  "sabias_que": {
+    "title": "Sabías que",
+    "titulo_1": "¿Sabías que?",
+    "texto_1": "Los Kariña habitan el territorio del Estado Bolívar, Venezuela, desde tiempos ancestrales. Su name significa \"el pueblo\".",
+    "titulo_2": "¿Sabías que?",
+    "texto_2": "El territorio Kariña está rodeado de tepuyes y selva amazónica. Cada montaña y río tiene un espíritu protector.",
+    "titulo_3": "¿Sabías que?",
+    "texto_3": "La lengua Kariña es una lengua caribe que ha sobrevivido pese a la colonización. Hoy se enseña a nuevas generaciones.",
+    "titulo_4": "¿Sabías que?",
+    "texto_4": "Los artesanos Kariña elaboran cestas y cerámica con técnicas transmitidas de abuela a nieta.",
+    "titulo_5": "¿Sabías que?",
+    "texto_5": "Las hachas ceremoniales Kariña son símbolos de poder y conexión con los ancestros."
+  },
+  "mascota": {
+    "saludo": "¡Hola! Soy tu guía Kariña",
+    "subtitulo": "Toca para practicar pronunciación"
+  },
   "common": {
     "continue": "Continuar",
     "verify": "Verificar respuesta",
