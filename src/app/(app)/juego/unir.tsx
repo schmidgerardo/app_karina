@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, View, StyleSheet, ScrollView, Animated as RNAnimated } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View, StyleSheet, ScrollView } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -61,7 +61,6 @@ export default function JuegoUnirScreen() {
   const [gameOver, setGameOver] = useState(false);
   const [savingProgress, setSavingProgress] = useState(false);
   const [feedback, setFeedback] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [showCelebration, setShowCelebration] = useState(false);
 
   const [karinaList, setKarinaList] = useState<string[]>([]);
   const [espanolList, setEspanolList] = useState<string[]>([]);
@@ -83,9 +82,6 @@ export default function JuegoUnirScreen() {
 
   const [activeWord, setActiveWord] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  // Animación de celebración
-  const celebrationAnim = useRef(new RNAnimated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -143,8 +139,6 @@ export default function JuegoUnirScreen() {
     setMatchedPairs([]);
     setActiveWord(null);
     setFeedback(null);
-    setShowCelebration(false);
-    celebrationAnim.setValue(0);
 
     const karinas = selected.map(w => w.palabra_karina);
     const espanols = selected.map(w =>
@@ -261,23 +255,7 @@ export default function JuegoUnirScreen() {
       setTotalMatches(m => m + 1);
       lineColor.value = '#4CAF50';
 
-      // Mostrar celebración si todas las palabras están emparejadas
       if (matchedKarina.size + 1 === currentWords.length) {
-        setShowCelebration(true);
-        RNAnimated.sequence([
-          RNAnimated.timing(celebrationAnim, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          RNAnimated.timing(celebrationAnim, {
-            toValue: 0,
-            duration: 300,
-            delay: 1000,
-            useNativeDriver: true,
-          }),
-        ]).start();
-
         setTimeout(() => {
           if (round >= TOTAL_ROUNDS) {
             setGameOver(true);
@@ -285,7 +263,7 @@ export default function JuegoUnirScreen() {
           } else {
             nextRound();
           }
-        }, 2000);
+        }, 1500);
       }
     } else {
       const correctMatch = currentWords.find(w => w.palabra_karina === karinaWord);
@@ -524,43 +502,14 @@ export default function JuegoUnirScreen() {
           </View>
         )}
 
-        {showCelebration && (
-          <RNAnimated.View
-            style={[
-              styles.celebrationContainer,
-              {
-                opacity: celebrationAnim,
-                transform: [
-                  {
-                    scale: celebrationAnim.interpolate({
-                      inputRange: [0, 0.5, 1],
-                      outputRange: [0.5, 1.2, 1],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            <View style={styles.celebrationCard}>
-              <Text style={styles.celebrationEmoji}>🎉</Text>
-              <Text style={styles.celebrationTitle}>¡Excelente!</Text>
-              <Text style={styles.celebrationSubtitle}>Has completado todas las palabras</Text>
-              <Text style={styles.celebrationScore}>+{XP_PER_MATCH * 4} puntos</Text>
-            </View>
-          </RNAnimated.View>
-        )}
-
         <ScrollView 
           contentContainerStyle={styles.scrollContent} 
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.instructionsContainer}>
-            <Text style={styles.instructionsIcon}>🔗</Text>
-            <Text style={styles.instructions}>
-              {t('unir.instructions')}
-            </Text>
-          </View>
+          <Text style={styles.instructions}>
+            {t('unir.instructions')}
+          </Text>
 
           <GestureDetector gesture={gesture}>
             <View
@@ -570,12 +519,6 @@ export default function JuegoUnirScreen() {
               }}
               style={styles.gameArea}
             >
-              <View style={styles.decorativeBackground}>
-                <View style={styles.decorativeCircle1} />
-                <View style={styles.decorativeCircle2} />
-                <View style={styles.decorativeCircle3} />
-              </View>
-
               <View style={styles.svgContainer}>
                 <Svg style={{ width: '100%', height: '100%' }}>
                   <AnimatedLine animatedProps={animatedLineProps} />
@@ -607,10 +550,7 @@ export default function JuegoUnirScreen() {
 
               <View style={styles.columnsWrapper}>
                 <View style={styles.column}>
-                  <View style={styles.columnHeaderContainer}>
-                    <Text style={styles.flagIcon}>🏴</Text>
-                    <Text style={[styles.columnHeader, styles.karinaHeader]}>KARIÑA</Text>
-                  </View>
+                  <Text style={styles.columnHeader}>KARIÑA</Text>
                   {karinaList.map(word => {
                     const isMatched = matchedKarina.has(word);
                     const isActive = activeWord === word;
@@ -626,8 +566,7 @@ export default function JuegoUnirScreen() {
                         }}
                         style={[
                           styles.wordCard,
-                          styles.karinaWord,
-                          isMatched && styles.matchedWord,
+                          isMatched && styles.matchedWordCard,
                           isActive && styles.activeWordCard,
                         ]}
                       >
@@ -639,35 +578,20 @@ export default function JuegoUnirScreen() {
                           <Text
                             style={[
                               styles.wordText,
-                              styles.karinaText,
                               isMatched && styles.matchedWordText,
                               isActive && styles.activeWordText,
                             ]}
                           >
                             {word}
                           </Text>
-                          {isMatched && (
-                            <View style={[styles.checkmarkContainer, styles.karinaCheckmark]}>
-                              <Text style={styles.checkmark}>✓</Text>
-                            </View>
-                          )}
                         </Pressable>
                       </View>
                     );
                   })}
                 </View>
 
-                <View style={styles.columnDivider}>
-                  <View style={styles.dividerLine} />
-                  <Text style={styles.dividerIcon}>⟷</Text>
-                  <View style={styles.dividerLine} />
-                </View>
-
                 <View style={styles.column}>
-                  <View style={styles.columnHeaderContainer}>
-                    <Text style={styles.flagIcon}>🇪🇸</Text>
-                    <Text style={[styles.columnHeader, styles.espanolHeader]}>ESPAÑOL</Text>
-                  </View>
+                  <Text style={[styles.columnHeader, { color: '#1565C0' }]}>ESPAÑOL</Text>
                   {espanolList.map(word => {
                     const isMatched = matchedEspanol.has(word);
 
@@ -680,31 +604,16 @@ export default function JuegoUnirScreen() {
                         onLayout={() => {
                           setTimeout(() => measureBox(word, false), 100);
                         }}
-                        style={[
-                          styles.wordCard,
-                          styles.espanolWord,
-                          isMatched && styles.matchedWord,
-                        ]}
+                        style={[styles.wordCard, isMatched && styles.matchedWordCard]}
                       >
                         <Pressable
                           onPress={() => handleTapWord(word, false)}
                           style={styles.pressableArea}
                           disabled={isMatched}
                         >
-                          <Text
-                            style={[
-                              styles.wordText,
-                              styles.espanolText,
-                              isMatched && styles.matchedWordText,
-                            ]}
-                          >
+                          <Text style={[styles.wordText, isMatched && styles.matchedWordText]}>
                             {word}
                           </Text>
-                          {isMatched && (
-                            <View style={[styles.checkmarkContainer, styles.espanolCheckmark]}>
-                              <Text style={styles.checkmark}>✓</Text>
-                            </View>
-                          )}
                         </Pressable>
                       </View>
                     );
@@ -930,130 +839,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  celebrationContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 200,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  celebrationCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 30,
-    alignItems: 'center',
-    width: '80%',
-    maxWidth: 320,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  celebrationEmoji: {
-    fontSize: 64,
-    marginBottom: 8,
-  },
-  celebrationTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#2E7D32',
-    marginBottom: 4,
-  },
-  celebrationSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  celebrationScore: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F59E0B',
-  },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingVertical: 8,
     justifyContent: 'center',
   },
-  instructionsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-    backgroundColor: 'rgba(27, 94, 32, 0.08)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    alignSelf: 'center',
-  },
-  instructionsIcon: {
-    fontSize: 16,
-    marginRight: 8,
-  },
   instructions: {
-    color: '#1B5E20',
-    fontSize: 13,
-    fontWeight: '600',
     textAlign: 'center',
+    color: '#666',
+    fontSize: 13,
+    marginBottom: 12,
   },
   gameArea: {
     flex: 1,
     position: 'relative',
     justifyContent: 'center',
-    minHeight: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#EFECE6',
-    overflow: 'hidden',
-  },
-  decorativeBackground: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-    borderRadius: 20,
-  },
-  decorativeCircle1: {
-    position: 'absolute',
-    top: -40,
-    right: -40,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(27, 94, 32, 0.06)',
-  },
-  decorativeCircle2: {
-    position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(21, 101, 192, 0.06)',
-  },
-  decorativeCircle3: {
-    position: 'absolute',
-    top: '40%',
-    left: '45%',
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: 'rgba(255, 193, 7, 0.04)',
+    minHeight: 400,
   },
   svgContainer: {
     position: 'absolute',
@@ -1066,131 +868,66 @@ const styles = StyleSheet.create({
   },
   columnsWrapper: {
     flexDirection: 'row',
-    gap: 8,
-    alignItems: 'stretch',
+    gap: 16,
+    alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    zIndex: 5,
+    paddingHorizontal: 4,
   },
   column: {
     flex: 1,
-    gap: 8,
-    maxWidth: '45%',
-  },
-  columnHeaderContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-    gap: 6,
-  },
-  flagIcon: {
-    fontSize: 16,
+    gap: 10,
+    maxWidth: '47%',
   },
   columnHeader: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
+    color: '#1B5E20',
     textAlign: 'center',
+    marginBottom: 4,
     letterSpacing: 1,
   },
-  karinaHeader: {
-    color: '#1B5E20',
-  },
-  espanolHeader: {
-    color: '#1565C0',
-  },
-  columnDivider: {
-    width: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  dividerLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: 'rgba(27, 94, 32, 0.1)',
-  },
-  dividerIcon: {
-    fontSize: 16,
-    color: 'rgba(27, 94, 32, 0.3)',
-  },
   wordCard: {
-    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
     borderWidth: 2,
+    borderColor: '#EFECE6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.02,
-    shadowRadius: 2,
+    shadowRadius: 4,
     elevation: 1,
     overflow: 'hidden',
-    minHeight: 44,
-    position: 'relative',
-  },
-  karinaWord: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
-  },
-  espanolWord: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#42A5F5',
-  },
-  matchedWord: {
-    backgroundColor: '#C8E6C9',
-    borderColor: '#2E7D32',
-    opacity: 0.85,
+    minHeight: 48,
   },
   pressableArea: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    minHeight: 42,
-    position: 'relative',
+    minHeight: 46,
   },
   wordText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
+    color: '#2A3B2A',
     textAlign: 'center',
     flexWrap: 'wrap',
   },
-  karinaText: {
-    color: '#1B5E20',
-  },
-  espanolText: {
-    color: '#0D47A1',
+  matchedWordCard: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#81C784',
+    opacity: 0.5,
   },
   matchedWordText: {
-    color: '#1B5E20',
+    color: '#2E7D32',
     textDecorationLine: 'line-through',
   },
-  checkmarkContainer: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    borderRadius: 10,
-    width: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  karinaCheckmark: {
-    backgroundColor: '#2E7D32',
-  },
-  espanolCheckmark: {
-    backgroundColor: '#1565C0',
-  },
-  checkmark: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
   activeWordCard: {
-    borderColor: '#FF6F00',
-    backgroundColor: '#FFF3E0',
-    transform: [{ scale: 1.02 }],
+    backgroundColor: '#E8F5E9',
+    borderColor: '#2E7D32',
   },
   activeWordText: {
-    color: '#E65100',
+    color: '#2E7D32',
   },
 });
