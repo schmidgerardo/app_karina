@@ -507,9 +507,12 @@ export default function JuegoUnirScreen() {
           scrollEnabled={false}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.instructions}>
-            {t('unir.instructions')}
-          </Text>
+          <View style={styles.instructionsContainer}>
+            <Text style={styles.instructionsIcon}>🔗</Text>
+            <Text style={styles.instructions}>
+              {t('unir.instructions')}
+            </Text>
+          </View>
 
           <GestureDetector gesture={gesture}>
             <View
@@ -519,6 +522,13 @@ export default function JuegoUnirScreen() {
               }}
               style={styles.gameArea}
             >
+              <View style={styles.decorativeBackground}>
+                <View style={styles.decorativeCircle1} />
+                <View style={styles.decorativeCircle2} />
+                <View style={styles.decorativeCircle3} />
+                <View style={styles.decorativeCircle4} />
+              </View>
+
               <View style={styles.svgContainer}>
                 <Svg style={{ width: '100%', height: '100%' }}>
                   <AnimatedLine animatedProps={animatedLineProps} />
@@ -550,7 +560,10 @@ export default function JuegoUnirScreen() {
 
               <View style={styles.columnsWrapper}>
                 <View style={styles.column}>
-                  <Text style={styles.columnHeader}>KARIÑA</Text>
+                  <View style={styles.columnHeaderContainer}>
+                    <Text style={styles.flagIcon}>🏴</Text>
+                    <Text style={styles.columnHeader}>KARIÑA</Text>
+                  </View>
                   {karinaList.map(word => {
                     const isMatched = matchedKarina.has(word);
                     const isActive = activeWord === word;
@@ -584,14 +597,28 @@ export default function JuegoUnirScreen() {
                           >
                             {word}
                           </Text>
+                          {isMatched && (
+                            <View style={styles.checkmarkContainer}>
+                              <Text style={styles.checkmark}>✓</Text>
+                            </View>
+                          )}
                         </Pressable>
                       </View>
                     );
                   })}
                 </View>
 
+                <View style={styles.columnDivider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerIcon}>⟷</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
                 <View style={styles.column}>
-                  <Text style={[styles.columnHeader, { color: '#1565C0' }]}>ESPAÑOL</Text>
+                  <View style={styles.columnHeaderContainer}>
+                    <Text style={styles.flagIcon}>🇪🇸</Text>
+                    <Text style={[styles.columnHeader, { color: '#1565C0' }]}>ESPAÑOL</Text>
+                  </View>
                   {espanolList.map(word => {
                     const isMatched = matchedEspanol.has(word);
 
@@ -614,6 +641,11 @@ export default function JuegoUnirScreen() {
                           <Text style={[styles.wordText, isMatched && styles.matchedWordText]}>
                             {word}
                           </Text>
+                          {isMatched && (
+                            <View style={styles.checkmarkContainer}>
+                              <Text style={styles.checkmark}>✓</Text>
+                            </View>
+                          )}
                         </Pressable>
                       </View>
                     );
@@ -845,17 +877,88 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     justifyContent: 'center',
   },
-  instructions: {
-    textAlign: 'center',
-    color: '#666',
-    fontSize: 13,
+  instructionsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
+    backgroundColor: 'rgba(27, 94, 32, 0.08)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  instructionsIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  instructions: {
+    color: '#1B5E20',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   gameArea: {
     flex: 1,
     position: 'relative',
     justifyContent: 'center',
-    minHeight: 400,
+    minHeight: 420,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    overflow: 'hidden',
+  },
+  decorativeBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden',
+    borderRadius: 20,
+  },
+  decorativeCircle1: {
+    position: 'absolute',
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(27, 94, 32, 0.06)',
+  },
+  decorativeCircle2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(21, 101, 192, 0.06)',
+  },
+  decorativeCircle3: {
+    position: 'absolute',
+    top: '40%',
+    left: '45%',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 193, 7, 0.04)',
+  },
+  decorativeCircle4: {
+    position: 'absolute',
+    bottom: '20%',
+    right: '10%',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(233, 30, 99, 0.03)',
   },
   svgContainer: {
     position: 'absolute',
@@ -868,56 +971,99 @@ const styles = StyleSheet.create({
   },
   columnsWrapper: {
     flexDirection: 'row',
-    gap: 16,
-    alignItems: 'center',
+    gap: 8,
+    alignItems: 'stretch',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    flex: 1,
+    zIndex: 5,
   },
   column: {
     flex: 1,
-    gap: 10,
-    maxWidth: '47%',
+    gap: 8,
+    maxWidth: '45%',
+  },
+  columnHeaderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+    gap: 6,
+  },
+  flagIcon: {
+    fontSize: 16,
   },
   columnHeader: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#1B5E20',
     textAlign: 'center',
-    marginBottom: 4,
     letterSpacing: 1,
+  },
+  columnDivider: {
+    width: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dividerLine: {
+    width: 2,
+    flex: 1,
+    backgroundColor: 'rgba(27, 94, 32, 0.1)',
+  },
+  dividerIcon: {
+    fontSize: 16,
+    color: 'rgba(27, 94, 32, 0.3)',
   },
   wordCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 2,
     borderColor: '#EFECE6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.02,
-    shadowRadius: 4,
+    shadowRadius: 2,
     elevation: 1,
     overflow: 'hidden',
-    minHeight: 48,
+    minHeight: 44,
+    position: 'relative',
   },
   pressableArea: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    minHeight: 46,
+    minHeight: 42,
+    position: 'relative',
   },
   wordText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#2A3B2A',
     textAlign: 'center',
     flexWrap: 'wrap',
   },
+  checkmarkContainer: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#2E7D32',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkmark: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
   matchedWordCard: {
     backgroundColor: '#E8F5E9',
     borderColor: '#81C784',
-    opacity: 0.5,
+    opacity: 0.7,
   },
   matchedWordText: {
     color: '#2E7D32',
@@ -926,6 +1072,7 @@ const styles = StyleSheet.create({
   activeWordCard: {
     backgroundColor: '#E8F5E9',
     borderColor: '#2E7D32',
+    transform: [{ scale: 1.02 }],
   },
   activeWordText: {
     color: '#2E7D32',
