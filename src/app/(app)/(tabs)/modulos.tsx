@@ -111,8 +111,14 @@ export default function ModulosScreen() {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 50 }}>
-                  <Text style={{ fontSize: 28 }}>📚</Text>
+                <View style={{ 
+                  backgroundColor: 'rgba(255,255,255,0.1)', 
+                  padding: 10, 
+                  borderRadius: 50,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.2)',
+                }}>
+                  <Ionicons name="library-outline" size={28} color="#F59E0B" />
                 </View>
                 <View>
                   <Text style={{ color: '#F59E0B', fontSize: 11, fontWeight: '700', letterSpacing: 1 }}>
@@ -131,7 +137,7 @@ export default function ModulosScreen() {
             {/* Subtítulo */}
             <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Ionicons name="book-outline" size={18} color="#F59E0B" />
+                <Ionicons name="compass-outline" size={18} color="#F59E0B" />
                 <Text style={{ fontSize: 13, color: '#888', fontStyle: 'italic' }}>
                   {t('modules.select')}
                 </Text>
@@ -172,6 +178,28 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
   const titulo = language === 'es' ? item.titulo_espanol : item.titulo_ingles;
   const desc = language === 'es' ? item.descripcion : item.descripcion_ingles;
 
+  // Iconos autóctonos según el índice del módulo
+  const getModuleIcon = (index: number) => {
+    const icons = [
+      'leaf-outline',           // Naturaleza
+      'water-outline',          // Agua
+      'flame-outline',          // Fuego
+      'earth-outline',          // Tierra
+      'moon-outline',           // Luna
+      'sunny-outline',          // Sol
+      'star-outline',           // Estrellas
+      'flower-outline',         // Flores
+      'tree-outline',           // Árboles
+      'cloud-outline',          // Nubes
+    ];
+    return icons[index % icons.length];
+  };
+
+  // Iconos de práctica según estado
+  const getPracticeIcon = (isCompleted: boolean) => {
+    return isCompleted ? 'sync-outline' : 'play-outline';
+  };
+
   return (
     <View style={{ marginBottom: 14 }}>
       <Pressable
@@ -199,16 +227,21 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons 
+                      name={getModuleIcon(index)} 
+                      size={16} 
+                      color="#F59E0B" 
+                    />
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A', flex: 1 }}>
                       {titulo}
                     </Text>
                     {isCompleted && (
                       <View style={{ backgroundColor: '#E8F5E9', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4 }}>
-                        <Text style={{ fontSize: 12 }}>✅</Text>
+                        <Ionicons name="checkmark-circle" size={14} color="#2E7D32" />
                       </View>
                     )}
                   </View>
-                  <Text style={{ fontSize: 11, color: '#F59E0B', fontWeight: '700', marginTop: 2 }}>
+                  <Text style={{ fontSize: 11, color: '#F59E0B', fontWeight: '700', marginTop: 2, marginLeft: 24 }}>
                     {item.titulo_karina}
                   </Text>
                 </View>
@@ -218,7 +251,7 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
               </Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="book-outline" size={14} color="#888" />
+                  <Ionicons name="text-outline" size={14} color="#888" />
                   <Text style={{ fontSize: 11, color: '#888' }}>8 {language === 'es' ? 'palabras' : 'words'}</Text>
                 </View>
                 <LinearGradient
@@ -229,9 +262,16 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
                     paddingVertical: 6,
                   }}
                 >
-                  <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
-                    {isCompleted ? '✅ ' + (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar →' : 'Explore →')}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons 
+                      name={isCompleted ? 'checkmark-circle-outline' : 'arrow-forward'} 
+                      size={14} 
+                      color={isCompleted ? '#2E7D32' : '#FFF'} 
+                    />
+                    <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
+                      {isCompleted ? (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar' : 'Explore')}
+                    </Text>
+                  </View>
                 </LinearGradient>
               </View>
             </View>
@@ -259,7 +299,11 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
             alignSelf: 'flex-start',
           }}
         >
-          <Text style={{ fontSize: 16 }}>{isCompleted ? '🔄' : '🎯'}</Text>
+          <Ionicons 
+            name={getPracticeIcon(isCompleted)} 
+            size={16} 
+            color={isCompleted ? '#2E7D32' : '#E65100'} 
+          />
           <Text style={{ fontSize: 13, fontWeight: '700', color: isCompleted ? '#2E7D32' : '#E65100' }}>
             {isCompleted
               ? (language === 'es' ? 'Practicar de nuevo' : 'Practice again')
