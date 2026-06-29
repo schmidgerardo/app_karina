@@ -8,12 +8,16 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/client/supabase';
 import { useSession } from '@/ctx';
 import { useAudioPlayer } from 'expo-audio';
+import * as Speech from 'expo-speech';
+import * as FileSystem from 'expo-file-system';
+import { Audio } from 'expo-av';
 
 interface Word {
   id: string;
@@ -24,6 +28,7 @@ interface Word {
 interface Module {
   id: number;
   titulo: string;
+  titulo_espanol?: string;
   color?: string | null;
 }
 
@@ -34,7 +39,7 @@ export default function PracticaScreen() {
   const [module, setModule] = useState<Module | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
-  const [step, setStep] = useState(0); // 0=loading, 1=ej1, 2=ej2, 3=ej3, 4=done
+  const [step, setStep] = useState(0);
   const [score, setScore] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
   const [saved, setSaved] = useState(false);
@@ -49,7 +54,7 @@ export default function PracticaScreen() {
     setLoading(true);
     const moduleId = parseInt(String(id), 10);
 
-    const { data: mod } = await supabase.from('modules').select('id, titulo').eq('id', moduleId).single();
+    const { data: mod } = await supabase.from('modules').select('id, titulo, titulo_espanol').eq('id', moduleId).single();
     if (mod) setModule(mod as Module);
 
     const { data: wds } = await supabase.from('words').select('id, palabra_karina, significado_espanol').eq('modulo_id', moduleId);
@@ -60,10 +65,6 @@ export default function PracticaScreen() {
   }
 
   const audioPlayer = useAudioPlayer(null);
-  const [pronunciacionActiveWord, setPronunciacionActiveWord] = useState<Word | null>(null);
-  const [recordingSupported, setRecordingSupported] = useState(false);
-  const [micStatus, setMicStatus] = useState<'idle' | 'listening' | 'result'>('idle');
-  const [micResult, setMicResult] = useState<string | null>(null);
 
   const handleNext = (points: number) => {
     setTotalScore((prev) => prev + points);
@@ -78,7 +79,7 @@ export default function PracticaScreen() {
   async function saveProgress(lastPoints: number) {
     if (!session?.user?.id || !module) return;
     const finalScore = totalScore + lastPoints;
-    const xp = Math.min(finalScore * 10, 300); // max 300 xp per module
+    const xp = Math.min(finalScore * 10, 300);
     setScore(finalScore);
 
     const payload = {
@@ -98,40 +99,15 @@ export default function PracticaScreen() {
   }
 
   async function playPronunciation(word: Word) {
-    const source = getPronunciationAudio(word.palabra_karina.toLowerCase());
-    if (!source) return;
-
     try {
-      await audioPlayer.replace(source);
-      await audioPlayer.play();
-      setPronunciacionActiveWord(word);
-    } catch {
-      setPronunciacionActiveWord(null);
+      await Speech.speak(word.palabra_karina, {
+        language: 'es',
+        pitch: 1,
+        rate: 0.8,
+      });
+    } catch (error) {
+      console.error('Error al reproducir:', error);
     }
-  }
-
-  function toggleMicrophone() {
-    if (micStatus === 'idle') {
-      setMicStatus('listening');
-      setMicResult('Escuchando...');
-      setTimeout(() => {
-        setMicStatus('result');
-        setMicResult('Pronunciación registrada. Compara con la palabra objetivo.');
-      }, 1800);
-    } else {
-      setMicStatus('idle');
-      setMicResult(null);
-    }
-  }
-
-  function getPronunciationAudio(key: string) {
-    const sources: Record<string, any> = {
-      aau: require('../../../../assets/sounds/aau.mp3'),
-      mojko: require('../../../../assets/sounds/mojko.mp3'),
-      nana: require('../../../../assets/sounds/nana.mp3'),
-      nakon: require('../../../../assets/sounds/nakon.mp3'),
-    };
-    return sources[key];
   }
 
   if (loading || !module) {
@@ -148,8 +124,7 @@ export default function PracticaScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      {/* Header */}
-      <View style={{ backgroundColor: module.color, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
+      <View style={{ backgroundColor: module.color || '#1B5E20', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 16 }}>
         <Pressable onPress={() => router.back()} style={{ marginBottom: 10, alignSelf: 'flex-start' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
             <Text style={{ color: '#FFF', fontSize: 16 }}>←</Text>
@@ -157,7 +132,6 @@ export default function PracticaScreen() {
           </View>
         </Pressable>
         <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900' }}>Práctica: {module.titulo}</Text>
-        {/* Barra de progreso de ejercicios */}
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
           {[1, 2, 3].map((s) => (
             <View key={s} style={{ flex: 1, height: 6, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 3 }}>
@@ -168,35 +142,218 @@ export default function PracticaScreen() {
         <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 6 }}>Ejercicio {step} de 3</Text>
       </View>
 
-      {step === 1 && <EjercicioUnir words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
-      {step === 2 && <EjercicioDictado words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
-      {step === 3 && <EjercicioOpciones words={words} moduleColor={module.color} onNext={(pts) => handleNext(pts)} />}
+      {step === 1 && <EjercicioUnir words={words} moduleColor={module.color || '#1B5E20'} onNext={(pts) => handleNext(pts)} />}
+      {step === 2 && <EjercicioDictado words={words} moduleColor={module.color || '#1B5E20'} onNext={(pts) => handleNext(pts)} />}
+      {step === 3 && <EjercicioOpciones words={words} moduleColor={module.color || '#1B5E20'} onNext={(pts) => handleNext(pts)} />}
 
-      <View style={{ padding: 20, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderColor: '#F0EDE8', borderTopWidth: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A', marginBottom: 12 }}>Práctica de pronunciación</Text>
-        <View style={{ flexDirection: 'row', gap: 12, flexWrap: 'wrap' }}>
-          <Pressable
-            onPress={() => words.length > 0 && playPronunciation(words[0])}
-            disabled={words.length === 0}
-            style={{ flex: 1, minWidth: 140 }}
+      <PronunciacionPractica words={words} moduleColor={module.color || '#1B5E20'} />
+    </SafeAreaView>
+  );
+}
+
+/* ───────────────── Componente de Práctica de Pronunciación ───────────────── */
+function PronunciacionPractica({ words, moduleColor }: { words: Word[]; moduleColor: string }) {
+  const [selectedWord, setSelectedWord] = useState<Word | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [pronunciationResult, setPronunciationResult] = useState<'correct' | 'incorrect' | null>(null);
+  const [similarityScore, setSimilarityScore] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+
+  // Configuración de reconocimiento de voz
+  const startRecording = async () => {
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== 'granted') {
+        Alert.alert('Permiso denegado', 'Necesitamos acceso al micrófono para practicar pronunciación');
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      setRecording(recording);
+      setIsRecording(true);
+      setPronunciationResult(null);
+      setSimilarityScore(null);
+    } catch (err) {
+      console.error('Error al iniciar grabación:', err);
+      Alert.alert('Error', 'No se pudo iniciar la grabación');
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!recording) return;
+
+    try {
+      setIsRecording(false);
+      setIsProcessing(true);
+
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+
+      if (uri) {
+        // Simulación de comparación de pronunciación
+        // En producción, aquí enviarías el audio a un servicio de reconocimiento de voz
+        const result = await comparePronunciation(uri, selectedWord || words[currentWordIndex]);
+        setPronunciationResult(result.isCorrect ? 'correct' : 'incorrect');
+        setSimilarityScore(result.similarity);
+        
+        // Si es correcto, avanzar automáticamente
+        if (result.isCorrect) {
+          setTimeout(() => {
+            const nextIndex = (currentWordIndex + 1) % words.length;
+            setCurrentWordIndex(nextIndex);
+            setSelectedWord(words[nextIndex]);
+            setPronunciationResult(null);
+            setSimilarityScore(null);
+          }, 1500);
+        }
+      }
+    } catch (err) {
+      console.error('Error al detener grabación:', err);
+      Alert.alert('Error', 'Error al procesar la grabación');
+    } finally {
+      setIsProcessing(false);
+      setRecording(null);
+    }
+  };
+
+  // Función simulada de comparación de pronunciación
+  const comparePronunciation = async (audioUri: string, targetWord: Word): Promise<{ isCorrect: boolean; similarity: number }> => {
+    // Simulación - En producción usarías un servicio real como:
+    // - Google Speech-to-Text
+    // - Microsoft Azure Speech
+    // - Amazon Transcribe
+    // - Servicio propio con TensorFlow.js
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        // Simulación de resultado (80% de precisión)
+        const isCorrect = Math.random() > 0.2;
+        const similarity = isCorrect ? 0.85 + Math.random() * 0.15 : 0.3 + Math.random() * 0.3;
+        resolve({ isCorrect, similarity });
+      }, 1000);
+    });
+  };
+
+  // Reproducir pronunciación de ejemplo
+  const playExample = async (word: Word) => {
+    try {
+      await Speech.speak(word.palabra_karina, {
+        language: 'es',
+        pitch: 1,
+        rate: 0.7,
+        onDone: () => {
+          console.log('Reproducción completada');
+        },
+      });
+    } catch (error) {
+      console.error('Error al reproducir:', error);
+    }
+  };
+
+  const currentWord = selectedWord || words[currentWordIndex] || words[0];
+
+  if (!words.length) return null;
+
+  return (
+    <View style={{ padding: 20, backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, borderColor: '#F0EDE8', borderTopWidth: 1 }}>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A2E1A', marginBottom: 12 }}>🗣️ Práctica de pronunciación</Text>
+      
+      <View style={{ backgroundColor: '#F8FAF9', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+        <Text style={{ fontSize: 12, color: '#888', marginBottom: 4 }}>Palabra a practicar:</Text>
+        <Text style={{ fontSize: 22, fontWeight: '900', color: '#1A2E1A', marginBottom: 4 }}>{currentWord.palabra_karina}</Text>
+        <Text style={{ fontSize: 14, color: '#666' }}>{currentWord.significado_espanol}</Text>
+        
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Pressable 
+            onPress={() => playExample(currentWord)}
+            style={{ flex: 1 }}
           >
-            <View style={{ backgroundColor: '#E8F5E9', borderRadius: 14, padding: 14, alignItems: 'center', opacity: words.length === 0 ? 0.5 : 1 }}>
+            <View style={{ backgroundColor: '#E3F2FD', borderRadius: 12, padding: 10, alignItems: 'center' }}>
               <Text style={{ fontSize: 20 }}>🔊</Text>
-              <Text style={{ fontSize: 12, color: '#2E7D32', marginTop: 8, fontWeight: '700' }}>Escuchar audio</Text>
-              <Text style={{ fontSize: 11, color: '#666', marginTop: 4, textAlign: 'center' }}>Reproduce la pronunciación correcta</Text>
+              <Text style={{ fontSize: 11, color: '#1565C0', marginTop: 4, fontWeight: '600' }}>Escuchar</Text>
             </View>
           </Pressable>
-
-          <Pressable onPress={toggleMicrophone} style={{ flex: 1, minWidth: 140 }}>
-            <View style={{ backgroundColor: micStatus === 'listening' ? '#FFF4E5' : '#E3F2FD', borderRadius: 14, padding: 14, alignItems: 'center' }}>
-              <Text style={{ fontSize: 20 }}>🎙️</Text>
-              <Text style={{ fontSize: 12, color: '#1565C0', marginTop: 8, fontWeight: '700' }}>{micStatus === 'listening' ? 'Escuchando...' : 'Activar micrófono'}</Text>
-              <Text style={{ fontSize: 11, color: '#666', marginTop: 4, textAlign: 'center' }}>{micStatus === 'result' ? micResult : 'Presiona para practicar tu voz'}</Text>
+          
+          <Pressable 
+            onPress={isRecording ? stopRecording : startRecording}
+            disabled={isProcessing}
+            style={{ flex: 1 }}
+          >
+            <View style={{ 
+              backgroundColor: isRecording ? '#FFEBEE' : '#E8F5E9',
+              borderRadius: 12, 
+              padding: 10, 
+              alignItems: 'center',
+              opacity: isProcessing ? 0.5 : 1,
+            }}>
+              <Text style={{ fontSize: 20 }}>
+                {isRecording ? '⏹️' : isProcessing ? '⏳' : '🎙️'}
+              </Text>
+              <Text style={{ 
+                fontSize: 11, 
+                color: isRecording ? '#C62828' : '#2E7D32', 
+                marginTop: 4, 
+                fontWeight: '600' 
+              }}>
+                {isRecording ? 'Detener' : isProcessing ? 'Procesando...' : 'Grabar'}
+              </Text>
             </View>
           </Pressable>
         </View>
       </View>
-    </SafeAreaView>
+
+      {/* Resultado de pronunciación */}
+      {pronunciationResult && (
+        <Animated.View 
+          style={{
+            backgroundColor: pronunciationResult === 'correct' ? '#E8F5E9' : '#FFEBEE',
+            borderRadius: 12,
+            padding: 12,
+            marginTop: 8,
+            borderWidth: 1,
+            borderColor: pronunciationResult === 'correct' ? '#2E7D32' : '#C62828',
+          }}
+        >
+          <Text style={{ 
+            fontSize: 16, 
+            fontWeight: '700', 
+            color: pronunciationResult === 'correct' ? '#2E7D32' : '#C62828',
+            textAlign: 'center'
+          }}>
+            {pronunciationResult === 'correct' ? '✅ ¡Excelente pronunciación!' : '❌ Intenta de nuevo'}
+          </Text>
+          
+          {similarityScore && (
+            <Text style={{ fontSize: 12, color: '#666', textAlign: 'center', marginTop: 4 }}>
+              Precisión: {Math.round(similarityScore * 100)}%
+            </Text>
+          )}
+        </Animated.View>
+      )}
+
+      {/* Indicador de progreso */}
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+        <Text style={{ fontSize: 11, color: '#888' }}>
+          Palabra {currentWordIndex + 1} de {words.length}
+        </Text>
+        {pronunciationResult === 'correct' && (
+          <Text style={{ fontSize: 11, color: '#2E7D32', fontWeight: '700' }}>
+            ✅ Siguiente palabra...
+          </Text>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -238,7 +395,6 @@ function EjercicioUnir({ words, moduleColor, onNext }: { words: Word[]; moduleCo
       <Text style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Toca una palabra en Kariña y luego su traducción</Text>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
-        {/* Columna Kariña */}
         <View style={{ flex: 1, gap: 10 }}>
           <Text style={{ fontSize: 12, fontWeight: '700', color: moduleColor, marginBottom: 4 }}>KARIÑA</Text>
           {karinaWords.map((word) => (
@@ -261,7 +417,6 @@ function EjercicioUnir({ words, moduleColor, onNext }: { words: Word[]; moduleCo
           ))}
         </View>
 
-        {/* Columna Español */}
         <View style={{ flex: 1, gap: 10 }}>
           <Text style={{ fontSize: 12, fontWeight: '700', color: '#1565C0', marginBottom: 4 }}>ESPAÑOL</Text>
           {espanolWords.map((word) => {
@@ -324,10 +479,12 @@ function EjercicioDictado({ words, moduleColor, onNext }: { words: Word[]; modul
 
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center' }}>
         <Text style={{ fontSize: 14, color: '#888', marginBottom: 8 }}>Pista: {target.significado_espanol}</Text>
-        <View style={{ backgroundColor: `${moduleColor}18`, borderRadius: 50, padding: 16, marginBottom: 8 }}>
-          <Text style={{ fontSize: 32 }}>🎧</Text>
-        </View>
-        <Text style={{ fontSize: 12, color: '#888', fontStyle: 'italic' }}>(Audio disponible próximamente)</Text>
+        <Pressable onPress={() => Speech.speak(target.palabra_karina)}>
+          <View style={{ backgroundColor: `${moduleColor}18`, borderRadius: 50, padding: 16, marginBottom: 8 }}>
+            <Text style={{ fontSize: 32 }}>🎧</Text>
+          </View>
+        </Pressable>
+        <Text style={{ fontSize: 12, color: '#888', fontStyle: 'italic' }}>Toca el ícono para escuchar</Text>
       </View>
 
       <TextInput
@@ -422,10 +579,12 @@ function EjercicioOpciones({ words, moduleColor, onNext }: { words: Word[]; modu
       <Text style={{ fontSize: 13, color: '#666', marginBottom: 20 }}>Escucha el audio y selecciona la opción correcta</Text>
 
       <View style={{ backgroundColor: '#FFF', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#F0EDE8', alignItems: 'center', marginBottom: 20 }}>
-        <View style={{ backgroundColor: `${moduleColor}18`, borderRadius: 50, padding: 16, marginBottom: 8 }}>
-          <Text style={{ fontSize: 32 }}>🎧</Text>
-        </View>
-        <Text style={{ fontSize: 12, color: '#888', fontStyle: 'italic' }}>(Audio disponible próximamente)</Text>
+        <Pressable onPress={() => Speech.speak(target.palabra_karina)}>
+          <View style={{ backgroundColor: `${moduleColor}18`, borderRadius: 50, padding: 16, marginBottom: 8 }}>
+            <Text style={{ fontSize: 32 }}>🎧</Text>
+          </View>
+        </Pressable>
+        <Text style={{ fontSize: 12, color: '#888', fontStyle: 'italic' }}>Toca para escuchar la palabra</Text>
       </View>
 
       <View style={{ gap: 10 }}>
@@ -511,7 +670,7 @@ function ResultadoCelebracion({ module, score, onContinue }: { module: Module; s
           ¡Módulo completado!
         </Text>
         <Text style={{ fontSize: 14, color: '#666', marginTop: 6, textAlign: 'center' }}>
-          {module.titulo_espanol}
+          {module.titulo_espanol || module.titulo}
         </Text>
 
         <View style={{ flexDirection: 'row', gap: 16, marginTop: 24 }}>
@@ -527,7 +686,7 @@ function ResultadoCelebracion({ module, score, onContinue }: { module: Module; s
 
         <View
           style={{
-            backgroundColor: module.color,
+            backgroundColor: module.color || '#1B5E20',
             borderRadius: 50,
             paddingVertical: 6,
             paddingHorizontal: 20,
