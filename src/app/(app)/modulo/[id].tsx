@@ -1,44 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
-import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { supabase } from '@/client/supabase';
-import { useTranslation } from 'react-i18next'; // 👈 Importar
-import { useLanguage } from '@/context/LanguageContext'; // 👈 Importar
-
-interface Word {
-  id: string;
-  palabra_karina: string;
-  significado_espanol: string;
-}
-
-interface Module {
-  id: number;
-  titulo?: string;
-  titulo_ingles?: string;      // 👈 Campo opcional para inglés
-  titulo_karina?: string;
-  imagen_url?: string;
-  color?: string | null;
-  descripcion?: string;
-  descripcion_ingles?: string; // 👈 Campo opcional para inglés
-}
+// ... imports existentes ...
 
 export default function ModuloDetailScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
   const { t } = useTranslation();
-  const { language } = useLanguage(); // 👈 'es' o 'en'
+  const { language } = useLanguage();
 
   const [module, setModule] = useState<Module | null>(null);
   const [words, setWords] = useState<Word[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Recargar datos si cambia el módulo o el idioma
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [id, language]) // 👈 Dependencia añadida
+    }, [id, language])
   );
 
   async function loadData() {
@@ -76,7 +51,6 @@ export default function ModuloDetailScreen() {
     );
   }
 
-  // Título y descripción según el idioma actual
   const tituloMostrado = language === 'en' && module.titulo_ingles ? module.titulo_ingles : module.titulo;
   const descMostrada = language === 'en' && module.descripcion_ingles ? module.descripcion_ingles : module.descripcion;
 
@@ -99,42 +73,84 @@ export default function ModuloDetailScreen() {
           </View>
         </View>
 
-        {/* Botón Practicar */}
-        <Pressable
-          onPress={() =>
-            router.push({
-              pathname: '/(app)/juego/unir',
-              params: { modulo_id: module.id },
-            })
-          }
-          style={{ marginTop: 14 }}
-        >
-          <View
-            style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              borderRadius: 12,
-              paddingVertical: 12,
-              paddingHorizontal: 16,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 10,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.3)',
-            }}
+        {/* Contenedor con dos botones: Explorar y Practicar */}
+        <View style={{ 
+          flexDirection: 'row', 
+          gap: 10, 
+          marginTop: 14,
+          justifyContent: 'space-between'
+        }}>
+          {/* Botón Explorar */}
+          <Pressable
+            onPress={() => router.push({
+              pathname: '/(app)/explorar',
+              params: { modulo_id: module.id }
+            })}
+            style={{ flex: 1 }}
           >
-            <Text style={{ fontSize: 20 }}>🎯</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{t('unir.title')}</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>
-                {language === 'es' ? '3 ejercicios · Empareja, dictado y opciones' : '3 exercises · Match, dictation and options'}
-              </Text>
+            <View
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.3)',
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>🔍</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>
+                  {language === 'es' ? 'Explorar' : 'Explore'}
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>
+                  {language === 'es' ? 'Ver vocabulario' : 'View vocabulary'}
+                </Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
             </View>
-            <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
-          </View>
-        </Pressable>
+          </Pressable>
+
+          {/* Botón Practicar */}
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/juego/unir',
+                params: { modulo_id: module.id },
+              })
+            }
+            style={{ flex: 1 }}
+          >
+            <View
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                borderRadius: 12,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.3)',
+              }}
+            >
+              <Text style={{ fontSize: 20 }}>🎯</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '800' }}>{t('unir.title')}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 11 }}>
+                  {language === 'es' ? '3 ejercicios' : '3 exercises'}
+                </Text>
+              </View>
+              <Text style={{ color: '#FFFFFF', fontSize: 18 }}>→</Text>
+            </View>
+          </Pressable>
+        </View>
       </View>
 
-      {/* Lista de palabras */}
+      {/* Lista de palabras - igual que antes */}
       <FlatList
         data={words}
         keyExtractor={(item) => item.id}
@@ -152,7 +168,7 @@ export default function ModuloDetailScreen() {
               }}
             >
               <Text style={{ fontSize: 11, color: module.color || '#1B5E20', fontWeight: '700' }}>
-                {words.length} {t('games.word_of').split(' ')[0] || (language === 'es' ? 'palabras' : 'words')}
+                {words.length} {language === 'es' ? 'palabras' : 'words'}
               </Text>
             </View>
           </View>
