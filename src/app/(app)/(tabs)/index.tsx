@@ -30,6 +30,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmallScreen = SCREEN_WIDTH < 380;
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
+// Importar imágenes de la carpeta assets
+const MODULES_ICON = require('@/../assets/modulos.png');
+const DICTIONARY_ICON = require('@/../assets/diccionario.png');
+const GAMES_ICON = require('@/../assets/juegos.png');
+
 // Tipos
 interface ProgressItem {
   modulo_id: number;
@@ -451,7 +456,7 @@ export default function HomeScreen() {
           <SabiasQueRotativo />
           <MascotaTortuga />
 
-          {/* Accesos rápidos rediseñados */}
+          {/* Accesos rápidos rediseñados con imágenes */}
           <View style={{ marginTop: 32, paddingHorizontal: 20 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <Ionicons name="apps" size={22} color="#1B5E20" />
@@ -478,9 +483,11 @@ export default function HomeScreen() {
                     elevation: 2,
                   }}
                 >
-                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E8F5E9', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="folder-outline" size={28} color="#2E7D32" />
-                  </View>
+                  <Image
+                    source={MODULES_ICON}
+                    style={{ width: 52, height: 52, borderRadius: 12 }}
+                    contentFit="contain"
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
                     <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('modules.subtitle')}</Text>
@@ -508,9 +515,11 @@ export default function HomeScreen() {
                     elevation: 2,
                   }}
                 >
-                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#FFF3E0', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="book-outline" size={28} color="#F59E0B" />
-                  </View>
+                  <Image
+                    source={DICTIONARY_ICON}
+                    style={{ width: 52, height: 52, borderRadius: 12 }}
+                    contentFit="contain"
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
                     <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('dictionary.subtitle')}</Text>
@@ -538,9 +547,11 @@ export default function HomeScreen() {
                     elevation: 2,
                   }}
                 >
-                  <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: '#E3F2FD', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="game-controller-outline" size={28} color="#1565C0" />
-                  </View>
+                  <Image
+                    source={GAMES_ICON}
+                    style={{ width: 52, height: 52, borderRadius: 12 }}
+                    contentFit="contain"
+                  />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>
                     <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('games.subtitle')}</Text>
