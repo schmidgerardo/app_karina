@@ -15,7 +15,7 @@ interface Word {
   id: string;
   palabra_karina: string;
   significado_espanol: string;
-  significado_ingles?: string;  // 👈 Añadido
+  significado_ingles?: string;
 }
 
 interface WordBox {
@@ -96,7 +96,7 @@ export default function JuegoUnirScreen() {
 
       let query = supabase
         .from('words')
-        .select('id, palabra_karina, significado_espanol, significado_ingles'); // 👈 Añadido
+        .select('id, palabra_karina, significado_espanol, significado_ingles');
 
       if (parsedModuloId !== null) {
         query = query.eq('modulo_id', parsedModuloId);
@@ -141,7 +141,6 @@ export default function JuegoUnirScreen() {
     setFeedback(null);
 
     const karinas = selected.map(w => w.palabra_karina);
-    // 👇 Usar significado traducido según idioma
     const espanols = selected.map(w =>
       language === 'en' && w.significado_ingles ? w.significado_ingles : w.significado_espanol
     );
@@ -503,7 +502,11 @@ export default function JuegoUnirScreen() {
           </View>
         )}
 
-        <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent} 
+          scrollEnabled={false}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.instructions}>
             {t('unir.instructions')}
           </Text>
@@ -545,7 +548,7 @@ export default function JuegoUnirScreen() {
                 </Svg>
               </View>
 
-              <View style={styles.columnsContainer}>
+              <View style={styles.columnsWrapper}>
                 <View style={styles.column}>
                   <Text style={styles.columnHeader}>KARIÑA</Text>
                   {karinaList.map(word => {
@@ -837,18 +840,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scrollContent: {
-    padding: 16,
-    flex: 1,
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    justifyContent: 'center',
   },
   instructions: {
     textAlign: 'center',
     color: '#666',
     fontSize: 13,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   gameArea: {
     flex: 1,
     position: 'relative',
+    justifyContent: 'center',
+    minHeight: 400,
   },
   svgContainer: {
     position: 'absolute',
@@ -859,14 +866,17 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
     zIndex: 10,
   },
-  columnsContainer: {
+  columnsWrapper: {
     flexDirection: 'row',
     gap: 16,
-    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
   },
   column: {
     flex: 1,
-    gap: 12,
+    gap: 10,
+    maxWidth: '47%',
   },
   columnHeader: {
     fontSize: 13,
@@ -887,19 +897,22 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
     overflow: 'hidden',
+    minHeight: 48,
   },
   pressableArea: {
-    paddingVertical: 18,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
+    minHeight: 46,
   },
   wordText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#2A3B2A',
     textAlign: 'center',
+    flexWrap: 'wrap',
   },
   matchedWordCard: {
     backgroundColor: '#E8F5E9',
