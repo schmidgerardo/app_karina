@@ -35,7 +35,9 @@ interface Module {
   descripcion_ingles?: string;
 }
 
-const STORAGE_URL = "https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/Image/";
+// ✅ Corregido: Ahora usamos el bucket correcto para cada tipo de archivo
+const STORAGE_IMAGE_URL = "https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/Image/";
+const STORAGE_AUDIO_URL = "https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/public/audios/";
 
 export default function ModuloDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -156,8 +158,9 @@ export default function ModuloDetailScreen() {
   const handlePlayAudio = async (word: Word) => {
     let finalUrl = word.audio_url;
     
+    // ✅ Corregido: Usamos el bucket de audios, no el de imágenes
     if (finalUrl && !finalUrl.startsWith('http')) {
-      finalUrl = `${STORAGE_URL}${finalUrl}`;
+      finalUrl = `${STORAGE_AUDIO_URL}${finalUrl}`;
     }
 
     if (!finalUrl) return;
@@ -439,11 +442,12 @@ export default function ModuloDetailScreen() {
                       borderTopColor: '#F0EDE8',
                       paddingTop: isExpanded ? 14 : 0,
                     }}>
-                      {/* Imagen con contenedor de altura fija */}
+                      {/* ✅ CORREGIDO: Imagen con contenedor que mantiene la relación de aspecto */}
                       {hasImage && imageUrl && (
                         <View style={{ 
                           marginBottom: hasAudio ? 12 : 0,
-                          height: 180,
+                          width: '100%',
+                          aspectRatio: 16 / 9, // Relación de aspecto fija
                           borderRadius: 12,
                           overflow: 'hidden',
                           backgroundColor: '#F5F5F5',
@@ -454,7 +458,8 @@ export default function ModuloDetailScreen() {
                               width: '100%',
                               height: '100%',
                             }} 
-                            contentFit="cover"
+                            // ✅ CORREGIDO: Usamos 'contain' para mostrar la imagen completa sin recortar
+                            contentFit="contain"
                             transition={300}
                           />
                         </View>
