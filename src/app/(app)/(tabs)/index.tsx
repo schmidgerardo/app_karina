@@ -12,6 +12,7 @@ import {
   TextInput,
   Animated,
   Easing,
+  ImageBackground,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -26,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 // Constantes
 const HEADER_IMAGE = require('@/../assets/image.png');
 const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
+const KARINAS_IMAGE = 'https://via.placeholder.com/400x800/1B5E20/FFFFFF?text=Karinas'; // Reemplazar con URL real
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmallScreen = SCREEN_WIDTH < 380;
 const CARD_WIDTH = SCREEN_WIDTH - 40;
@@ -139,7 +141,7 @@ function SabiasQueRotativo() {
                     width: '100%', 
                     height: '100%' 
                   }} 
-                  contentFit="contain"  // <--- CAMBIADO DE "cover" A "contain"
+                  contentFit="contain"
                 />
               </View>
               <View style={{ padding: 16, backgroundColor: '#1B5E20' }}>
@@ -372,9 +374,14 @@ export default function HomeScreen() {
                   borderWidth: 1,
                   borderColor: 'rgba(255,255,255,0.2)',
                   flexShrink: 0,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
                 }}
               >
-                <Text style={{ color: '#FFFFFF', fontSize: isSmallScreen ? 9 : 10, fontWeight: '700' }}>{language === 'es' ? 'ES' : 'EN'}</Text>
+                <Text style={{ color: '#FFFFFF', fontSize: isSmallScreen ? 9 : 10, fontWeight: '700' }}>
+                  {language === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}
+                </Text>
               </Pressable>
             </View>
           </LinearGradient>
@@ -473,110 +480,124 @@ export default function HomeScreen() {
           <SabiasQueRotativo />
           <MascotaTortuga />
 
-          {/* Accesos rápidos rediseñados con imágenes */}
+          {/* Accesos rápidos rediseñados con imágenes - CENTRADO CON IMAGEN DE FONDO */}
           <View style={{ marginTop: 32, paddingHorizontal: 20 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, justifyContent: 'center' }}>
               <Ionicons name="apps" size={22} color="#1B5E20" />
-              <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A' }}>{t('home.learning_units')}</Text>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: '#1A2E1A', textAlign: 'center' }}>
+                {t('home.learning_units')}
+              </Text>
             </View>
 
-            <View style={{ gap: 12 }}>
-              {/* Módulos de estudio */}
-              <Pressable onPress={() => router.push('/(app)/(tabs)/modulos')}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#F5F9F5']}
-                  style={{
-                    borderRadius: 20,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 14,
-                    borderWidth: 1,
-                    borderColor: '#E8E5E0',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 6,
-                    elevation: 2,
-                  }}
-                >
-                  <Image
-                    source={MODULES_ICON}
-                    style={{ width: 52, height: 52, borderRadius: 12 }}
-                    contentFit="contain"
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
-                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('modules.subtitle')}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
-                </LinearGradient>
-              </Pressable>
+            <ImageBackground
+              source={{ uri: KARINAS_IMAGE }}
+              style={{
+                borderRadius: 20,
+                overflow: 'hidden',
+                padding: 16,
+                backgroundColor: 'rgba(27, 94, 32, 0.85)',
+                backgroundBlendMode: 'overlay',
+              }}
+              imageStyle={{ borderRadius: 20, opacity: 0.3 }}
+            >
+              <View style={{ gap: 12 }}>
+                {/* Módulos de estudio */}
+                <Pressable onPress={() => router.push('/(app)/(tabs)/modulos')}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.95)', 'rgba(245,249,245,0.95)']}
+                    style={{
+                      borderRadius: 20,
+                      padding: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 14,
+                      borderWidth: 1,
+                      borderColor: 'rgba(232,229,224,0.5)',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 6,
+                      elevation: 2,
+                    }}
+                  >
+                    <Image
+                      source={MODULES_ICON}
+                      style={{ width: 52, height: 52, borderRadius: 12 }}
+                      contentFit="contain"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('modules.title')}</Text>
+                      <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('modules.subtitle')}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#2E7D32" />
+                  </LinearGradient>
+                </Pressable>
 
-              {/* Diccionario */}
-              <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#F9F5F0']}
-                  style={{
-                    borderRadius: 20,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 14,
-                    borderWidth: 1,
-                    borderColor: '#E8E5E0',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 6,
-                    elevation: 2,
-                  }}
-                >
-                  <Image
-                    source={DICTIONARY_ICON}
-                    style={{ width: 52, height: 52, borderRadius: 12 }}
-                    contentFit="contain"
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
-                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('dictionary.subtitle')}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
-                </LinearGradient>
-              </Pressable>
+                {/* Diccionario */}
+                <Pressable onPress={() => router.push('/(app)/(tabs)/diccionario')}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.95)', 'rgba(249,245,240,0.95)']}
+                    style={{
+                      borderRadius: 20,
+                      padding: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 14,
+                      borderWidth: 1,
+                      borderColor: 'rgba(232,229,224,0.5)',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 6,
+                      elevation: 2,
+                    }}
+                  >
+                    <Image
+                      source={DICTIONARY_ICON}
+                      style={{ width: 52, height: 52, borderRadius: 12 }}
+                      contentFit="contain"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('dictionary.title')}</Text>
+                      <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('dictionary.subtitle')}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
+                  </LinearGradient>
+                </Pressable>
 
-              {/* Juegos */}
-              <Pressable onPress={() => router.push('/(app)/(tabs)/juegos')}>
-                <LinearGradient
-                  colors={['#FFFFFF', '#F0F4F9']}
-                  style={{
-                    borderRadius: 20,
-                    padding: 16,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 14,
-                    borderWidth: 1,
-                    borderColor: '#E8E5E0',
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.04,
-                    shadowRadius: 6,
-                    elevation: 2,
-                  }}
-                >
-                  <Image
-                    source={GAMES_ICON}
-                    style={{ width: 52, height: 52, borderRadius: 12 }}
-                    contentFit="contain"
-                  />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>
-                    <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('games.subtitle')}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#1565C0" />
-                </LinearGradient>
-              </Pressable>
-            </View>
+                {/* Juegos */}
+                <Pressable onPress={() => router.push('/(app)/(tabs)/juegos')}>
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.95)', 'rgba(240,244,249,0.95)']}
+                    style={{
+                      borderRadius: 20,
+                      padding: 16,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 14,
+                      borderWidth: 1,
+                      borderColor: 'rgba(232,229,224,0.5)',
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 2 },
+                      shadowOpacity: 0.04,
+                      shadowRadius: 6,
+                      elevation: 2,
+                    }}
+                  >
+                    <Image
+                      source={GAMES_ICON}
+                      style={{ width: 52, height: 52, borderRadius: 12 }}
+                      contentFit="contain"
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: '800', color: '#1A2E1A' }}>{t('games.title')}</Text>
+                      <Text style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('games.subtitle')}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#1565C0" />
+                  </LinearGradient>
+                </Pressable>
+              </View>
+            </ImageBackground>
           </View>
         </Animated.View>
       </ScrollView>
