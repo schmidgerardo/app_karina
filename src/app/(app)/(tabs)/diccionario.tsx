@@ -7,9 +7,9 @@ import {
   View, 
   Animated, 
   Easing,
-  Pressable // 👈 Importante: agregar Pressable
+  Pressable
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import { supabase } from '@/client/supabase';
@@ -34,6 +34,7 @@ const STORAGE_URL = "https://oczoccdlyyhbdvnyjjni.supabase.co/storage/v1/object/
 export default function DiccionarioScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [words, setWords] = useState<Word[]>([]);
   const [filtered, setFiltered] = useState<Word[]>([]);
   const [search, setSearch] = useState('');
@@ -179,7 +180,10 @@ export default function DiccionarioScreen() {
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 30 }}
+        contentContainerStyle={{ 
+          paddingBottom: insets.bottom + 90, // 👈 Espacio para la barra de navegación
+          paddingTop: 0
+        }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
