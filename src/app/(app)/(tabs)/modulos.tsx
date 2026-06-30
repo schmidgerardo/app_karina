@@ -93,11 +93,10 @@ export default function ModulosScreen() {
       <FlatList
         data={modules}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={{ paddingBottom: 100 }} // Espacio extra para la barra de navegación
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-            {/* Header con gradiente */}
             <LinearGradient
               colors={['#1B5E20', '#2E7D32']}
               start={{ x: 0, y: 0 }}
@@ -134,7 +133,6 @@ export default function ModulosScreen() {
               </View>
             </LinearGradient>
 
-            {/* Subtítulo */}
             <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Ionicons name="compass-outline" size={18} color="#F59E0B" />
@@ -178,44 +176,33 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
   const titulo = language === 'es' ? item.titulo_espanol : item.titulo_ingles;
   const desc = language === 'es' ? item.descripcion : item.descripcion_ingles;
 
-  // Función para obtener la URL completa de la imagen desde Supabase Storage
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return null;
-    
-    // Si ya es una URL completa, devolverla
     if (imagePath.startsWith('http')) return imagePath;
-    
-    // Construir URL desde el storage de Supabase
-    const { data } = supabase.storage
-      .from('Image') // Nombre del bucket
-      .getPublicUrl(imagePath);
-    
+    const { data } = supabase.storage.from('Image').getPublicUrl(imagePath);
     return data?.publicUrl || null;
   };
 
-  // Iconos autóctonos según el índice del módulo
   const getModuleIcon = (index: number) => {
     const icons = [
-      'leaf-outline',           // Naturaleza
-      'water-outline',          // Agua
-      'flame-outline',          // Fuego
-      'earth-outline',          // Tierra
-      'moon-outline',           // Luna
-      'sunny-outline',          // Sol
-      'star-outline',           // Estrellas
-      'flower-outline',         // Flores
-      'tree-outline',           // Árboles
-      'cloud-outline',          // Nubes
+      'leaf-outline', 'water-outline', 'flame-outline', 'earth-outline',
+      'moon-outline', 'sunny-outline', 'star-outline', 'flower-outline',
+      'tree-outline', 'cloud-outline',
     ];
     return icons[index % icons.length];
   };
 
-  // Iconos de práctica según estado
-  const getPracticeIcon = (isCompleted: boolean) => {
-    return isCompleted ? 'sync-outline' : 'play-outline';
-  };
-
   const imageUrl = getImageUrl(item.imagen_url);
+
+  // Texto del botón explorar
+  const exploreText = isCompleted 
+    ? (language === 'es' ? 'Listo' : 'Done')
+    : (language === 'es' ? 'Explorar' : 'Explore');
+
+  // Texto del botón practicar
+  const practiceText = isCompleted
+    ? (language === 'es' ? 'Repasar' : 'Review')
+    : (language === 'es' ? 'Practicar' : 'Practice');
 
   return (
     <View style={{ marginBottom: 16 }}>
@@ -284,7 +271,6 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
                 {desc}
               </Text>
               
-              {/* Contenedor de acciones - Explorar y Practicar juntos */}
               <View style={{ 
                 flexDirection: 'row', 
                 alignItems: 'center', 
@@ -292,15 +278,13 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
                 marginTop: 12,
                 gap: 8,
               }}>
-                {/* Palabras - izquierda */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Ionicons name="book-outline" size={14} color="#888" />
                   <Text style={{ fontSize: 11, color: '#888' }}>8 {language === 'es' ? 'palabras' : 'words'}</Text>
                 </View>
 
-                {/* Botones de acción - derecha */}
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {/* Botón Explorar */}
+                  {/* Botón Explorar - Naranja */}
                   <LinearGradient
                     colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#F59E0B', '#F97316']}
                     style={{
@@ -319,14 +303,14 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
                         color={isCompleted ? '#2E7D32' : '#FFF'} 
                       />
                       <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
-                        {isCompleted ? (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar' : 'Explore')}
+                        {exploreText}
                       </Text>
                     </Pressable>
                   </LinearGradient>
 
-                  {/* Botón Practicar */}
+                  {/* Botón Practicar - Verde */}
                   <LinearGradient
-                    colors={['#FFF3E0', '#FFE0B2']}
+                    colors={['#2E7D32', '#1B5E20']}
                     style={{
                       borderRadius: 12,
                       paddingHorizontal: 14,
@@ -341,14 +325,12 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
                       style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                     >
                       <Ionicons 
-                        name={getPracticeIcon(isCompleted)} 
+                        name="play-outline" 
                         size={14} 
-                        color="#E65100" 
+                        color="#FFF" 
                       />
-                      <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700' }}>
-                        {isCompleted
-                          ? (language === 'es' ? 'Repasar' : 'Review')
-                          : (language === 'es' ? 'Practicar' : 'Practice')}
+                      <Text style={{ color: '#FFF', fontSize: 11, fontWeight: '700' }}>
+                        {practiceText}
                       </Text>
                     </Pressable>
                   </LinearGradient>
