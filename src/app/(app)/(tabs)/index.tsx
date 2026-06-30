@@ -26,7 +26,6 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Constantes
 const HEADER_IMAGE = require('@/../assets/image.png');
-const TORTUGA_IMAGE = 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_688f01ac-8453-4ac5-af2d-fee35504e6f5.jpg';
 const KARINAS_IMAGE = 'https://via.placeholder.com/400x800/1B5E20/FFFFFF?text=Karinas'; // Reemplazar con URL real
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const isSmallScreen = SCREEN_WIDTH < 380;
@@ -171,50 +170,6 @@ function SabiasQueRotativo() {
           ))}
         </View>
       </View>
-    </View>
-  );
-}
-
-// Componente MascotaTortuga mejorado
-function MascotaTortuga() {
-  const { t } = useTranslation();
-  const router = useRouter();
-  return (
-    <View style={{ marginTop: 28, paddingHorizontal: 20, alignItems: 'center' }}>
-      <Pressable onPress={() => router.push('/(app)/pronunciacion')} style={{ width: '100%' }}>
-        <LinearGradient
-          colors={['#F59E0B', '#F97316']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{
-            borderRadius: 24,
-            padding: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 14,
-            shadowColor: '#F59E0B',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: 0.25,
-            shadowRadius: 12,
-            elevation: 8,
-          }}
-        >
-          <Image
-            source={{ uri: TORTUGA_IMAGE }}
-            style={{ width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: '#FFFFFF' }}
-            contentFit="cover"
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
-              {t('mascota.saludo')}
-            </Text>
-            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 }}>
-              {t('mascota.subtitulo')}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color="#FFFFFF" />
-        </LinearGradient>
-      </Pressable>
     </View>
   );
 }
@@ -476,9 +431,8 @@ export default function HomeScreen() {
             </LinearGradient>
           </View>
 
-          {/* Sabías que y Tortuga */}
+          {/* Sabías que */}
           <SabiasQueRotativo />
-          <MascotaTortuga />
 
           {/* Accesos rápidos rediseñados con imágenes - CENTRADO CON IMAGEN DE FONDO */}
           <View style={{ marginTop: 32, paddingHorizontal: 20 }}>
