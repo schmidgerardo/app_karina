@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View, Animated, Easing } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View, Animated, Easing, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,11 @@ import { useLanguage } from '@/context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
+
+// Habilitar LayoutAnimation para Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface Word {
   id: string;
@@ -46,6 +51,7 @@ export default function ModuloDetailScreen() {
   const [playbackProgress, setPlaybackProgress] = useState<{ [key: string]: number }>({});
 
   const player = useAudioPlayer(null);
+  const expandAnimations = useRef<{ [key: string]: Animated.Value }>({});
 
   // Animación de entrada
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -126,7 +132,25 @@ export default function ModuloDetailScreen() {
   }
 
   const toggleExpand = (wordId: string) => {
-    setExpandedId(expandedId === wordId ? null : wordId);
+    // Verificar si la palabra tiene contenido para mostrar (imagen o audio)
+    const word = words.find(w => w.id === wordId);
+    if (!word || (!word.imagen_url && !word.audio_url)) return;
+
+    // Crear animación si no existe
+    if (!expandAnimations.current[wordId]) {
+      expandAnimations.current[wordId] = new Animated.Value(0);
+    }
+
+    const isExpanding = expandedId !== wordId;
+    setExpandedId(isExpanding ? wordId : null);
+
+    // Animación de altura
+    Animated.timing(expandAnimations.current[wordId], {
+      toValue: isExpanding ? 1 : 0,
+      duration: 300,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: false,
+    }).start();
   };
 
   const handlePlayAudio = async (word: Word) => {
@@ -310,11 +334,19 @@ export default function ModuloDetailScreen() {
           const isExpanded = expandedId === item.id;
           const isPlaying = playingId === item.id;
           const hasAudio = !!item.audio_url;
+          const hasImage = !!item.imagen_url;
+          const hasContent = hasAudio || hasImage;
           const progress = playbackProgress[item.id] || 0;
           const significado = language === 'en' && item.significado_ingles 
             ? item.significado_ingles 
             : item.significado_espanol;
           const imageUrl = getImageUrl(item.imagen_url);
+          
+          // Obtener o crear valor de animación
+          if (!expandAnimations.current[item.id]) {
+            expandAnimations.current[item.id] = new Animated.Value(isExpanded ? 1 : 0);
+          }
+          const expandAnim = expandAnimations.current[item.id];
 
           return (
             <Animated.View 
@@ -338,7 +370,7 @@ export default function ModuloDetailScreen() {
                 overflow: 'hidden',
               }}>
                 {/* Contenido principal */}
-                <Pressable onPress={() => toggleExpand(item.id)}>
+                <Pressable onPress={() => toggleExpand(item.id)} disabled={!hasContent}>
                   <View style={{
                     padding: 16,
                     flexDirection: 'row',
@@ -365,11 +397,13 @@ export default function ModuloDetailScreen() {
                         {significado}
                       </Text>
                     </View>
-                    <Ionicons 
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'} 
-                      size={20} 
-                      color="#94A3B8" 
-                    />
+                    {hasContent && (
+                      <Ionicons 
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'} 
+                        size={20} 
+                        color="#94A3B8" 
+                      />
+                    )}
                   </View>
                 </Pressable>
 
@@ -388,62 +422,76 @@ export default function ModuloDetailScreen() {
                   </View>
                 )}
 
-                {/* Contenido expandido */}
-                {isExpanded && (
+                {/* Contenido expandido con animación */}
+                {hasContent && (
                   <Animated.View style={{
-                    paddingHorizontal: 16,
-                    paddingBottom: 16,
-                    borderTopWidth: 1,
-                    borderTopColor: '#F0EDE8',
-                    paddingTop: 14,
+                    maxHeight: expandAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 500],
+                    }),
+                    opacity: expandAnim,
+                    overflow: 'hidden',
                   }}>
-                    {/* Imagen */}
-                    {imageUrl && (
-                      <View style={{ marginBottom: 12 }}>
-                        <Image 
-                          source={{ uri: imageUrl }} 
-                          style={{ 
-                            width: '100%', 
-                            height: 180, 
-                            borderRadius: 12,
-                          }} 
-                          contentFit="cover"
-                          transition={300}
-                        />
-                      </View>
-                    )}
-
-                    {/* Botones de audio */}
-                    {hasAudio && (
-                      <Pressable
-                        onPress={() => handlePlayAudio(item)}
-                        style={{
-                          backgroundColor: isPlaying ? '#E8F5E9' : '#FFF3E0',
+                    <View style={{
+                      paddingHorizontal: 16,
+                      paddingBottom: 16,
+                      borderTopWidth: isExpanded ? 1 : 0,
+                      borderTopColor: '#F0EDE8',
+                      paddingTop: isExpanded ? 14 : 0,
+                    }}>
+                      {/* Imagen con contenedor de altura fija */}
+                      {hasImage && imageUrl && (
+                        <View style={{ 
+                          marginBottom: hasAudio ? 12 : 0,
+                          height: 180,
                           borderRadius: 12,
-                          paddingVertical: 10,
-                          paddingHorizontal: 16,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 8,
-                        }}
-                      >
-                        <Ionicons 
-                          name={isPlaying ? 'pause-circle' : 'play-circle'} 
-                          size={20} 
-                          color={isPlaying ? '#2E7D32' : '#E65100'} 
-                        />
-                        <Text style={{ 
-                          fontSize: 13, 
-                          fontWeight: '700', 
-                          color: isPlaying ? '#2E7D32' : '#E65100' 
+                          overflow: 'hidden',
+                          backgroundColor: '#F5F5F5',
                         }}>
-                          {isPlaying 
-                            ? (language === 'es' ? 'Reproduciendo...' : 'Playing...')
-                            : (language === 'es' ? 'Escuchar audio' : 'Listen to audio')}
-                        </Text>
-                      </Pressable>
-                    )}
+                          <Image 
+                            source={{ uri: imageUrl }} 
+                            style={{ 
+                              width: '100%',
+                              height: '100%',
+                            }} 
+                            contentFit="cover"
+                            transition={300}
+                          />
+                        </View>
+                      )}
+
+                      {/* Botones de audio */}
+                      {hasAudio && (
+                        <Pressable
+                          onPress={() => handlePlayAudio(item)}
+                          style={{
+                            backgroundColor: isPlaying ? '#E8F5E9' : '#FFF3E0',
+                            borderRadius: 12,
+                            paddingVertical: 10,
+                            paddingHorizontal: 16,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 8,
+                          }}
+                        >
+                          <Ionicons 
+                            name={isPlaying ? 'pause-circle' : 'play-circle'} 
+                            size={20} 
+                            color={isPlaying ? '#2E7D32' : '#E65100'} 
+                          />
+                          <Text style={{ 
+                            fontSize: 13, 
+                            fontWeight: '700', 
+                            color: isPlaying ? '#2E7D32' : '#E65100' 
+                          }}>
+                            {isPlaying 
+                              ? (language === 'es' ? 'Reproduciendo...' : 'Playing...')
+                              : (language === 'es' ? 'Escuchar audio' : 'Listen to audio')}
+                          </Text>
+                        </Pressable>
+                      )}
+                    </View>
                   </Animated.View>
                 )}
               </View>
