@@ -1,4 +1,28 @@
-// ... imports existentes ...
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '@/client/supabase';
+import { useTranslation } from 'react-i18next';
+import { useLanguage } from '@/context/LanguageContext';
+
+interface Word {
+  id: string;
+  palabra_karina: string;
+  significado_espanol: string;
+}
+
+interface Module {
+  id: number;
+  titulo?: string;
+  titulo_ingles?: string;
+  titulo_karina?: string;
+  imagen_url?: string;
+  color?: string | null;
+  descripcion?: string;
+  descripcion_ingles?: string;
+}
 
 export default function ModuloDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -56,7 +80,6 @@ export default function ModuloDetailScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0' }} edges={['top']}>
-      {/* Header */}
       <View style={{ backgroundColor: '#F59E0B', paddingHorizontal: 20, paddingTop: 10, paddingBottom: 20 }}>
         <Pressable onPress={() => router.back()} style={{ marginBottom: 12, alignSelf: 'flex-start' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 }}>
@@ -73,14 +96,11 @@ export default function ModuloDetailScreen() {
           </View>
         </View>
 
-        {/* Contenedor con dos botones: Explorar y Practicar */}
         <View style={{ 
           flexDirection: 'row', 
           gap: 10, 
           marginTop: 14,
-          justifyContent: 'space-between'
         }}>
-          {/* Botón Explorar */}
           <Pressable
             onPress={() => router.push({
               pathname: '/(app)/explorar',
@@ -114,7 +134,6 @@ export default function ModuloDetailScreen() {
             </View>
           </Pressable>
 
-          {/* Botón Practicar */}
           <Pressable
             onPress={() =>
               router.push({
@@ -150,7 +169,6 @@ export default function ModuloDetailScreen() {
         </View>
       </View>
 
-      {/* Lista de palabras - igual que antes */}
       <FlatList
         data={words}
         keyExtractor={(item) => item.id}
