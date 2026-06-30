@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Pressable,
   ScrollView,
   Switch,
@@ -28,6 +29,11 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Estado para términos y condiciones
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsAcceptedInModal, setTermsAcceptedInModal] = useState(false);
+
   // Animación de entrada
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -51,8 +57,15 @@ export default function SignUpScreen() {
 
   const handleRegister = async () => {
     if (loading) return;
+    
+    // Validaciones
     if (!nombre.trim() || !apellido.trim() || !edad.trim() || !email.trim() || !password.trim()) {
       setError('Completa todos los campos');
+      return;
+    }
+
+    if (!acceptedTerms) {
+      setError('Debes aceptar los términos y condiciones');
       return;
     }
 
@@ -110,6 +123,12 @@ export default function SignUpScreen() {
     }
   };
 
+  const handleAcceptTerms = () => {
+    setAcceptedTerms(true);
+    setTermsAcceptedInModal(true);
+    setShowTermsModal(false);
+  };
+
   return (
     <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: '#1B5E20' }}>
       <ScrollView
@@ -139,8 +158,10 @@ export default function SignUpScreen() {
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: 10,
+              borderWidth: 1,
+              borderColor: 'rgba(245, 158, 11, 0.2)',
             }}>
-              <Text style={{ fontSize: 36 }}>🌱</Text>
+              <Ionicons name="leaf-outline" size={36} color="#F59E0B" />
             </View>
             <Text style={{ fontSize: 28, fontWeight: '900', color: '#FFFFFF' }}>Crear cuenta</Text>
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, marginTop: 4 }}>
@@ -150,7 +171,7 @@ export default function SignUpScreen() {
 
           <View style={{ paddingHorizontal: 24, paddingTop: 28 }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: '#FFFFFF', textAlign: 'center' }}>
-              ¡Comienza tu viaje de aprendizaje! 🚀
+              ¡Comienza tu viaje de aprendizaje!
             </Text>
             <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, textAlign: 'center', marginTop: 4 }}>
               Completa tus datos para empezar
@@ -273,6 +294,39 @@ export default function SignUpScreen() {
                 </View>
               </View>
 
+              {/* Términos y condiciones */}
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                gap: 12,
+                paddingVertical: 4,
+              }}>
+                <Pressable 
+                  onPress={() => setAcceptedTerms(!acceptedTerms)}
+                  style={{ 
+                    width: 24,
+                    height: 24,
+                    borderRadius: 6,
+                    borderWidth: 2,
+                    borderColor: acceptedTerms ? '#F59E0B' : 'rgba(255,255,255,0.3)',
+                    backgroundColor: acceptedTerms ? '#F59E0B' : 'transparent',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  {acceptedTerms && <Ionicons name="checkmark" size={16} color="#1B5E20" />}
+                </Pressable>
+                <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 13, flex: 1 }}>
+                  Acepto los{' '}
+                  <Text 
+                    style={{ color: '#F59E0B', fontWeight: '700', textDecorationLine: 'underline' }}
+                    onPress={() => setShowTermsModal(true)}
+                  >
+                    Términos y Condiciones
+                  </Text>
+                </Text>
+              </View>
+
               {error ? (
                 <View style={{
                   backgroundColor: 'rgba(255,107,107,0.15)',
@@ -332,6 +386,144 @@ export default function SignUpScreen() {
           </View>
         </Animated.View>
       </ScrollView>
+
+      {/* Modal de Términos y Condiciones */}
+      <Modal
+        visible={showTermsModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowTermsModal(false)}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 24,
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 24,
+            padding: 24,
+            width: '100%',
+            maxWidth: 400,
+            maxHeight: '85%',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: 0.2,
+            shadowRadius: 24,
+            elevation: 10,
+          }}>
+            {/* Header del modal */}
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+            }}>
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+              }}>
+                <View style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 20,
+                  backgroundColor: '#FFF3E0',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Ionicons name="document-text-outline" size={22} color="#F59E0B" />
+                </View>
+                <Text style={{ fontSize: 18, fontWeight: '800', color: '#1B5E20' }}>
+                  Términos y Condiciones
+                </Text>
+              </View>
+              <Pressable 
+                onPress={() => {
+                  if (!termsAcceptedInModal) {
+                    setAcceptedTerms(false);
+                  }
+                  setShowTermsModal(false);
+                }}
+                style={{
+                  padding: 8,
+                }}
+              >
+                <Ionicons name="close" size={24} color="#666" />
+              </Pressable>
+            </View>
+
+            {/* Contenido del modal */}
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              style={{ maxHeight: '75%' }}
+              contentContainerStyle={{ paddingBottom: 16 }}
+            >
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1A2E1A', marginBottom: 12 }}>
+                📋 Términos y Condiciones de Uso
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>1. Aceptación de los Términos</Text>
+                {'\n'}Al registrarte en KARIÑA, aceptas cumplir con estos términos y condiciones. Si no estás de acuerdo, no debes usar la aplicación.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>2. Descripción del Servicio</Text>
+                {'\n'}KARIÑA es una aplicación educativa diseñada para enseñar el idioma y la cultura Kariña a través de módulos interactivos, juegos y contenido multimedia.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>3. Registro y Cuentas</Text>
+                {'\n'}Debes proporcionar información veraz y actualizada. Eres responsable de mantener la confidencialidad de tu contraseña y de todas las actividades realizadas en tu cuenta.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>4. Propiedad Intelectual</Text>
+                {'\n'}Todo el contenido de KARIÑA, incluyendo textos, imágenes, videos y ejercicios, está protegido por derechos de autor. No está permitido reproducir, distribuir o modificar el contenido sin autorización.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>5. Conducta del Usuario</Text>
+                {'\n'}Te comprometes a usar KARIÑA de manera respetuosa y educativa. No está permitido publicar contenido ofensivo, difamatorio o ilegal.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>6. Privacidad</Text>
+                {'\n'}Tus datos personales serán tratados según nuestra Política de Privacidad. No compartiremos tu información con terceros sin tu consentimiento.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>7. Modificaciones</Text>
+                {'\n'}KARIÑA se reserva el derecho de modificar estos términos en cualquier momento. Te notificaremos sobre cambios importantes a través de la aplicación.
+              </Text>
+
+              <Text style={termsTextStyle}>
+                <Text style={{ fontWeight: '700' }}>8. Contacto</Text>
+                {'\n'}Para preguntas sobre estos términos, contáctanos en soporte@karina.com
+              </Text>
+            </ScrollView>
+
+            {/* Botón de aceptar */}
+            <Pressable
+              onPress={handleAcceptTerms}
+              style={{
+                marginTop: 16,
+                padding: 16,
+                backgroundColor: '#F59E0B',
+                borderRadius: 14,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#1B5E20', fontWeight: '800', fontSize: 16 }}>
+                Aceptar Términos y Condiciones
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -352,4 +544,11 @@ const inputStyle = {
   padding: 16,
   color: '#FFFFFF' as const,
   fontSize: 15,
+};
+
+const termsTextStyle = {
+  fontSize: 13,
+  color: '#444',
+  lineHeight: 20,
+  marginBottom: 16,
 };
