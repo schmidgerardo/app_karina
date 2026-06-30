@@ -80,21 +80,6 @@ export default function ModulosScreen() {
     setLoading(false);
   }
 
-  // Función para obtener la URL completa de la imagen desde Supabase Storage
-  const getImageUrl = (imagePath: string) => {
-    if (!imagePath) return null;
-    
-    // Si ya es una URL completa, devolverla
-    if (imagePath.startsWith('http')) return imagePath;
-    
-    // Construir URL desde el storage de Supabase
-    const { data } = supabase.storage
-      .from('Image') // Nombre del bucket
-      .getPublicUrl(imagePath);
-    
-    return data?.publicUrl || null;
-  };
-
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F9F6F0', alignItems: 'center', justifyContent: 'center' }}>
@@ -108,7 +93,7 @@ export default function ModulosScreen() {
       <FlatList
         data={modules}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={{ paddingBottom: 30 }}
+        contentContainerStyle={{ paddingBottom: 100 }} // Espacio extra para la barra de navegación
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
@@ -233,7 +218,7 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
   const imageUrl = getImageUrl(item.imagen_url);
 
   return (
-    <View style={{ marginBottom: 14 }}>
+    <View style={{ marginBottom: 16 }}>
       <Pressable
         onPress={() => router.push(`/(app)/modulo/${item.id}`)}
         onPressIn={() => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start()}
@@ -298,72 +283,80 @@ function ModuloItem({ item, isCompleted, index }: { item: Module; isCompleted: b
               <Text style={{ fontSize: 12, color: '#666', lineHeight: 17, marginTop: 6 }}>
                 {desc}
               </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+              
+              {/* Contenedor de acciones - Explorar y Practicar juntos */}
+              <View style={{ 
+                flexDirection: 'row', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                marginTop: 12,
+                gap: 8,
+              }}>
+                {/* Palabras - izquierda */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Ionicons name="book-outline" size={14} color="#888" />
                   <Text style={{ fontSize: 11, color: '#888' }}>8 {language === 'es' ? 'palabras' : 'words'}</Text>
                 </View>
-                <LinearGradient
-                  colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#F59E0B', '#F97316']}
-                  style={{
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    paddingVertical: 6,
-                  }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons 
-                      name={isCompleted ? 'checkmark-circle-outline' : 'arrow-forward'} 
-                      size={14} 
-                      color={isCompleted ? '#2E7D32' : '#FFF'} 
-                    />
-                    <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
-                      {isCompleted ? (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar' : 'Explore')}
-                    </Text>
-                  </View>
-                </LinearGradient>
+
+                {/* Botones de acción - derecha */}
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {/* Botón Explorar */}
+                  <LinearGradient
+                    colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#F59E0B', '#F97316']}
+                    style={{
+                      borderRadius: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => router.push(`/(app)/modulo/${item.id}`)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <Ionicons 
+                        name={isCompleted ? 'checkmark-circle-outline' : 'arrow-forward'} 
+                        size={14} 
+                        color={isCompleted ? '#2E7D32' : '#FFF'} 
+                      />
+                      <Text style={{ color: isCompleted ? '#2E7D32' : '#FFF', fontSize: 11, fontWeight: '700' }}>
+                        {isCompleted ? (language === 'es' ? 'Listo' : 'Done') : (language === 'es' ? 'Explorar' : 'Explore')}
+                      </Text>
+                    </Pressable>
+                  </LinearGradient>
+
+                  {/* Botón Practicar */}
+                  <LinearGradient
+                    colors={['#FFF3E0', '#FFE0B2']}
+                    style={{
+                      borderRadius: 12,
+                      paddingHorizontal: 14,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Pressable
+                      onPress={() => router.push({
+                        pathname: '/(app)/juego/unir',
+                        params: { modulo_id: item.id },
+                      })}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                    >
+                      <Ionicons 
+                        name={getPracticeIcon(isCompleted)} 
+                        size={14} 
+                        color="#E65100" 
+                      />
+                      <Text style={{ color: '#E65100', fontSize: 11, fontWeight: '700' }}>
+                        {isCompleted
+                          ? (language === 'es' ? 'Repasar' : 'Review')
+                          : (language === 'es' ? 'Practicar' : 'Practice')}
+                      </Text>
+                    </Pressable>
+                  </LinearGradient>
+                </View>
               </View>
             </View>
           </LinearGradient>
         </Animated.View>
-      </Pressable>
-
-      {/* Botón de práctica mejorado */}
-      <Pressable
-        onPress={() => router.push({
-          pathname: '/(app)/juego/unir',
-          params: { modulo_id: item.id },
-        })}
-        style={{ marginTop: 8 }}
-      >
-        <LinearGradient
-          colors={isCompleted ? ['#E8F5E9', '#C8E6C9'] : ['#FFF3E0', '#FFE0B2']}
-          style={{
-            borderRadius: 12,
-            paddingVertical: 10,
-            paddingHorizontal: 16,
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 8,
-            alignSelf: 'flex-start',
-          }}
-        >
-          <Ionicons 
-            name={getPracticeIcon(isCompleted)} 
-            size={16} 
-            color={isCompleted ? '#2E7D32' : '#E65100'} 
-          />
-          <Text style={{ fontSize: 13, fontWeight: '700', color: isCompleted ? '#2E7D32' : '#E65100' }}>
-            {isCompleted
-              ? (language === 'es' ? 'Practicar de nuevo' : 'Practice again')
-              : (language === 'es' ? 'Practicar módulo' : 'Practice module')}
-          </Text>
-          <Ionicons 
-            name="chevron-forward" 
-            size={16} 
-            color={isCompleted ? '#2E7D32' : '#E65100'} 
-          />
-        </LinearGradient>
       </Pressable>
     </View>
   );
