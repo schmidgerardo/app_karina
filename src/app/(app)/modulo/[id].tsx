@@ -1,5 +1,5 @@
 import { useCallback, useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View, Animated, Easing } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View, Animated, Easing, LayoutAnimation, UIManager, Platform } from 'react-native';
 import { Image } from 'expo-image';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -9,6 +9,11 @@ import { useLanguage } from '@/context/LanguageContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAudioPlayer } from 'expo-audio';
+
+// Habilitar LayoutAnimation para Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 interface Word {
   id: string;
@@ -131,18 +136,18 @@ export default function ModuloDetailScreen() {
     const word = words.find(w => w.id === wordId);
     if (!word || (!word.imagen_url && !word.audio_url)) return;
 
-    const isExpanding = expandedId !== wordId;
-    setExpandedId(isExpanding ? wordId : null);
-
-    // Crear o actualizar animación
+    // Crear animación si no existe
     if (!expandAnimations.current[wordId]) {
       expandAnimations.current[wordId] = new Animated.Value(0);
     }
 
-    // Animar la altura
+    const isExpanding = expandedId !== wordId;
+    setExpandedId(isExpanding ? wordId : null);
+
+    // Animación de altura
     Animated.timing(expandAnimations.current[wordId], {
       toValue: isExpanding ? 1 : 0,
-      duration: 350,
+      duration: 300,
       easing: Easing.inOut(Easing.ease),
       useNativeDriver: false,
     }).start();
@@ -422,7 +427,7 @@ export default function ModuloDetailScreen() {
                   <Animated.View style={{
                     maxHeight: expandAnim.interpolate({
                       inputRange: [0, 1],
-                      outputRange: [0, 400],
+                      outputRange: [0, 500],
                     }),
                     opacity: expandAnim,
                     overflow: 'hidden',
@@ -434,17 +439,14 @@ export default function ModuloDetailScreen() {
                       borderTopColor: '#F0EDE8',
                       paddingTop: isExpanded ? 14 : 0,
                     }}>
-                      {/* Imagen con contenedor de altura fija - CORREGIDO */}
+                      {/* Imagen con contenedor de altura fija */}
                       {hasImage && imageUrl && (
                         <View style={{ 
                           marginBottom: hasAudio ? 12 : 0,
                           height: 180,
-                          width: '100%',
                           borderRadius: 12,
                           overflow: 'hidden',
                           backgroundColor: '#F5F5F5',
-                          justifyContent: 'center',
-                          alignItems: 'center',
                         }}>
                           <Image 
                             source={{ uri: imageUrl }} 
@@ -453,7 +455,6 @@ export default function ModuloDetailScreen() {
                               height: '100%',
                             }} 
                             contentFit="cover"
-                            contentPosition="center"
                             transition={300}
                           />
                         </View>
